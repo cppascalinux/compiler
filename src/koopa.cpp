@@ -4,7 +4,8 @@
 #include <string>
 #include <iostream>
 #include "types.hpp"
-#include "values.hpp"
+#include "koopa.hpp"
+
 
 namespace koopa {
 	AggregateInit::AggregateInit(std::unique_ptr<Aggregate> a):

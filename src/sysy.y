@@ -93,12 +93,47 @@ Stmt
 	: RETURN Number ';' {
 		auto ast = new StmtAST(static_cast<NumberAST*>($2));
 		$$ = ast;
+	}
+	| RETURN Exp ';' {
+		// TODO
 	};
 
 Number
 	: INT_CONST {
 		auto ast = new NumberAST($1);
 		$$ = ast;
+	};
+
+Exp
+	: UnaryExp {
+		// TODO
+	};
+
+PrimaryExp
+	: '(' Exp ')' {
+		// TODO
+	}
+	| Number {
+		// TODO
+	};
+
+UnaryExp
+	: PrimaryExp {
+		// TODO
+	}
+	| UnaryOp UnaryExp {
+		// TODO
+	}
+
+UnaryOp
+	: '+' {
+		// TODO
+	}
+	| '-' {
+		// TODO
+	}
+	| '!' {
+		// TODO
 	};
 
 %%
