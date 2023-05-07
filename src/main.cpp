@@ -3,8 +3,8 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include "ast.hpp"
-#include "ast2koopa.hpp"
+#include "sysy.hpp"
+#include "sysy2koopa.hpp"
 
 using namespace std;
 
@@ -15,7 +15,7 @@ using namespace std;
 // 你的代码编辑器/IDE 很可能找不到这个文件, 然后会给你报错 (虽然编译不会出错)
 // 看起来会很烦人, 于是干脆采用这种看起来 dirty 但实际很有效的手段
 extern FILE *yyin;
-extern int yyparse(unique_ptr<sysy::CompUnitAST> &ast);
+extern int yyparse(unique_ptr<sysy::CompUnit> &ast);
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -30,7 +30,7 @@ int main(int argc, const char *argv[]) {
   assert(yyin);
 
   // 调用 parser 函数, parser 函数会进一步调用 lexer 解析输入文件的
-  unique_ptr<sysy::CompUnitAST> ast;
+  unique_ptr<sysy::CompUnit> ast;
   auto ret = yyparse(ast);
   assert(!ret);
 
