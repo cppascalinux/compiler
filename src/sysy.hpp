@@ -116,11 +116,95 @@ class OpUnaryExp: public UnaryExp {
 };
 
 
-// Exp         ::= UnaryExp;
-class Exp: public Base {
+// MulExp      ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp;
+enum MulExpType {
+	UNARYMULEXP,
+	OPMULEXP
+};
+
+class MulExp: public Base {
+	public:
+		MulExpType mul_type;
+		MulExp(MulExpType a): mul_type(a){}
+		virtual ~MulExp() = default;
+		virtual void Dump() const override = 0;
+};
+
+class UnaryMulExp: public MulExp {
 	public:
 		std::unique_ptr<UnaryExp> exp;
-		Exp(Base *p): exp(static_cast<UnaryExp*>(p)){}
+		UnaryMulExp(Base *p): MulExp(UNARYMULEXP), exp(static_cast<UnaryExp*>(p)){}
+		virtual void Dump() const override {
+			std::cout << "MulExp {";
+			exp->Dump();
+			std::cout << " }";
+		}
+};
+
+class OpMulExp: public MulExp {
+	public:
+		std::unique_ptr<MulExp> mul_exp;
+		std::string op;
+		std::unique_ptr<UnaryExp> unary_exp;
+		OpMulExp(Base *p, std::string s, Base *q):MulExp(OPMULEXP),
+			mul_exp(static_cast<MulExp*>(p)), op(s), unary_exp(static_cast<UnaryExp*>(q)){}
+		virtual void Dump() const override {
+			std::cout << "MulExp {";
+			mul_exp->Dump();
+			std::cout << " " + op + " ";
+			unary_exp->Dump();
+			std::cout << " }";
+		}
+};
+
+
+// AddExp      ::= MulExp | AddExp ("+" | "-") MulExp;
+enum AddExpType {
+	MULADDEXP,
+	OPADDEXP
+};
+
+class AddExp: public Base {
+	public:
+		AddExpType add_type;
+		AddExp(AddExpType a): add_type(a){}
+		virtual ~AddExp() = default;
+		virtual void Dump() const override = 0;
+};
+
+class MulAddExp: public AddExp {
+	public:
+		std::unique_ptr<MulExp> exp;
+		MulAddExp(Base *p): AddExp(MULADDEXP), exp(static_cast<MulExp*>(p)){}
+		virtual void Dump() const override {
+			std::cout << "AddExp { ";
+			exp->Dump();
+			std::cout << "} ";
+		}
+};
+
+class OpAddExp: public AddExp {
+	public:
+		std::unique_ptr<AddExp> add_exp;
+		std::string op;
+		std::unique_ptr<MulExp> mul_exp;
+		OpAddExp(Base *p, std::string s, Base *q): AddExp(OPADDEXP),
+			add_exp(static_cast<AddExp*>(p)), op(s), mul_exp(static_cast<MulExp*>(q)){}
+		virtual void Dump() const override {
+			std::cout << "AddExp { ";
+			add_exp->Dump();
+			std::cout << " " + op + " ";
+			mul_exp->Dump();
+			std::cout << " }";
+		}
+};
+
+
+// Exp         ::= AddExp;
+class Exp: public Base {
+	public:
+		std::unique_ptr<AddExp> exp;
+		Exp(Base *p): exp(static_cast<AddExp*>(p)){}
 		virtual void Dump() const override {
 			std::cout << "Exp { ";
 			exp->Dump();

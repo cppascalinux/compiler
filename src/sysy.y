@@ -43,7 +43,7 @@ void yyerror(std::unique_ptr<CompUnit> &ast, const char *s);
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp UnaryOp
+%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp UnaryOp AddExp MulExp
 
 
 %%
@@ -101,7 +101,7 @@ Number
 	};
 
 Exp
-	: UnaryExp {
+	: AddExp {
 		auto ast = new Exp($1);
 		$$ = ast;
 	};
@@ -140,6 +140,37 @@ UnaryOp
 		$$ = ast;
 	};
 
+AddExp
+	: MulExp {
+		auto ast = new MulAddExp($1);
+		$$ = ast;
+	}
+	| AddExp '+' MulExp {
+		auto ast = new OpAddExp($1, "+", $3);
+		$$ = ast;
+	}
+	| AddExp '-' MulExp {
+		auto ast = new OpAddExp($1, "-", $3);
+		$$ = ast;
+	}
+
+MulExp
+	: UnaryExp {
+		auto ast = new UnaryMulExp($1);
+		$$ = ast;
+	}
+	| MulExp '*' UnaryExp {
+		auto ast = new OpMulExp($1, "*", $3);
+		$$ = ast;
+	}
+	| MulExp '/' UnaryExp {
+		auto ast = new OpMulExp($1, "/", $3);
+		$$ = ast;
+	}
+	| MulExp '%' UnaryExp {
+		auto ast = new OpMulExp($1, "%", $3);
+		$$ = ast;
+	}
 %%
 
 // 定义错误处理函数, 其中第二个参数是错误信息
