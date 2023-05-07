@@ -135,7 +135,7 @@ class UnaryMulExp: public MulExp {
 		std::unique_ptr<UnaryExp> exp;
 		UnaryMulExp(Base *p): MulExp(UNARYMULEXP), exp(static_cast<UnaryExp*>(p)){}
 		virtual void Dump() const override {
-			std::cout << "MulExp {";
+			std::cout << "MulExp { ";
 			exp->Dump();
 			std::cout << " }";
 		}
@@ -149,7 +149,7 @@ class OpMulExp: public MulExp {
 		OpMulExp(Base *p, std::string s, Base *q):MulExp(OPMULEXP),
 			mul_exp(static_cast<MulExp*>(p)), op(s), unary_exp(static_cast<UnaryExp*>(q)){}
 		virtual void Dump() const override {
-			std::cout << "MulExp {";
+			std::cout << "MulExp { ";
 			mul_exp->Dump();
 			std::cout << " " + op + " ";
 			unary_exp->Dump();
@@ -200,11 +200,175 @@ class OpAddExp: public AddExp {
 };
 
 
-// Exp         ::= AddExp;
-class Exp: public Base {
+// RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
+enum RelExpType {
+	ADDRELEXP,
+	OPRELEXP
+};
+
+class RelExp: public Base {
+	public:
+		RelExpType rel_type;
+		RelExp(RelExpType a): rel_type(a){}
+		virtual ~RelExp() = default;
+		virtual void Dump() const override = 0;
+};
+
+class AddRelExp: public RelExp {
 	public:
 		std::unique_ptr<AddExp> exp;
-		Exp(Base *p): exp(static_cast<AddExp*>(p)){}
+		AddRelExp(Base *p): RelExp(ADDRELEXP), exp(static_cast<AddExp*>(p)){}
+		virtual void Dump() const override {
+			std::cout << "RelExp { ";
+			exp->Dump();
+			std::cout << " }";
+		}
+};
+
+class OpRelExp: public RelExp {
+	public:
+		std::unique_ptr<RelExp> rel_exp;
+		std::string op;
+		std::unique_ptr<AddExp> add_exp;
+		OpRelExp(Base *p, std::string s, Base *q): RelExp(OPRELEXP),
+			rel_exp(static_cast<RelExp*>(p)), op(s), add_exp(static_cast<AddExp*>(q)){}
+		virtual void Dump() const override {
+			std::cout << "RelExp { ";
+			rel_exp->Dump();
+			std::cout << " " + op + " ";
+			add_exp->Dump();
+			std::cout << " }";
+		}
+};
+
+
+// EqExp       ::= RelExp | EqExp ("==" | "!=") RelExp;
+enum EqExpType {
+	RELEQEXP,
+	OPEQEXP
+};
+
+class EqExp: public Base {
+	public:
+		EqExpType eq_type;
+		EqExp(EqExpType a): eq_type(a){};
+		virtual ~EqExp() = default;
+		virtual void Dump() const override = 0;
+};
+
+class RelEqExp: public EqExp {
+	public:
+		std::unique_ptr<RelExp> exp;
+		RelEqExp(Base *p): EqExp(RELEQEXP), exp(static_cast<RelExp*>(p)){}
+		virtual void Dump() const override {
+			std::cout << "EqExp { ";
+			exp->Dump();
+			std::cout << " }";
+		}
+};
+
+class OpEqExp: public EqExp {
+	public:
+		std::unique_ptr<EqExp> eq_exp;
+		std::string op;
+		std::unique_ptr<RelExp> rel_exp;
+		OpEqExp(Base *p, std::string s, Base *q): EqExp(OPEQEXP),
+			eq_exp(static_cast<EqExp*>(p)), op(s), rel_exp(static_cast<RelExp*>(q)){}
+		virtual void Dump() const override {
+			std::cout << "EqExp { ";
+			eq_exp->Dump();
+			std::cout << " " + op + " ";
+			rel_exp->Dump();
+			std::cout << " }";
+		}
+};
+
+
+// LAndExp     ::= EqExp | LAndExp "&&" EqExp;
+enum LAndExpType {
+	EQLANDEXP,
+	OPLANDEXP
+};
+
+class LAndExp: public Base {
+	public:
+		LAndExpType land_type;
+		LAndExp(LAndExpType a): land_type(a){}
+		virtual ~LAndExp() = default;
+		virtual void Dump() const override = 0;
+};
+
+class EqLAndExp: public LAndExp {
+	public:
+		std::unique_ptr<EqExp> exp;
+		EqLAndExp(Base *p): LAndExp(EQLANDEXP), exp(static_cast<EqExp*>(p)){}
+		virtual void Dump() const override {
+			std::cout << "LAndExp { ";
+			exp->Dump();
+			std::cout << " }";
+		}
+};
+
+class OpLAndExp: public LAndExp {
+	public:
+		std::unique_ptr<LAndExp> land_exp;
+		std::unique_ptr<EqExp> eq_exp;
+		OpLAndExp(Base *p, Base *q): LAndExp(OPLANDEXP),
+			land_exp(static_cast<LAndExp*>(p)), eq_exp(static_cast<EqExp*>(q)){}
+		virtual void Dump() const override {
+			std::cout << "LAndExp { ";
+			land_exp->Dump();
+			std::cout << " && ";
+			eq_exp->Dump();
+			std::cout << " }";
+		}
+};
+
+// LOrExp      ::= LAndExp | LOrExp "||" LAndExp;
+enum LOrExpType {
+	LANDLOREXP,
+	OPLOREXP
+};
+
+class LOrExp: public Base {
+	public:
+		LOrExpType lor_type;
+		LOrExp(LOrExpType a): lor_type(a){}
+		virtual ~LOrExp() = default;
+		virtual void Dump() const override = 0;
+};
+
+class LAndLOrExp: public LOrExp {
+	public:
+		std::unique_ptr<LAndExp> exp;
+		LAndLOrExp(Base *p): LOrExp(LANDLOREXP), exp(static_cast<LAndExp*>(p)){}
+		virtual void Dump() const override {
+			std::cout << "LOrExp { ";
+			exp->Dump();
+			std::cout << " }";
+		};
+};
+
+class OpLOrExp: public LOrExp {
+	public:
+		std::unique_ptr<LOrExp> lor_exp;
+		std::unique_ptr<LAndExp> land_exp;
+		OpLOrExp(Base *p, Base *q): LOrExp(OPLOREXP),
+			lor_exp(static_cast<LOrExp*>(p)), land_exp(static_cast<LAndExp*>(q)){}
+		virtual void Dump() const override {
+			std::cout << "LOrExp { ";
+			lor_exp->Dump();
+			std::cout << " || ";
+			land_exp->Dump();
+			std::cout << " }";
+		}
+};
+
+// Exp         ::= LOrExp;
+class Exp: public Base {
+	public:
+		std::unique_ptr<LOrExp> exp;
+		Exp(Base *p): exp(static_cast<LOrExp*>(p)){}
 		virtual void Dump() const override {
 			std::cout << "Exp { ";
 			exp->Dump();

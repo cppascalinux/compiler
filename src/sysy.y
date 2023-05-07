@@ -38,12 +38,12 @@ void yyerror(std::unique_ptr<CompUnit> &ast, const char *s);
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN
+%token INT RETURN LE GE EQ NE AND OR
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp UnaryOp AddExp MulExp
+%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp UnaryOp AddExp MulExp RelExp EqExp LAndExp LOrExp
 
 
 %%
@@ -101,7 +101,7 @@ Number
 	};
 
 Exp
-	: AddExp {
+	: LOrExp {
 		auto ast = new Exp($1);
 		$$ = ast;
 	};
@@ -124,7 +124,7 @@ UnaryExp
 	| UnaryOp UnaryExp {
 		auto ast = new OpUnaryExp($1, $2);
 		$$ = ast;
-	}
+	};
 
 UnaryOp
 	: '+' {
@@ -139,20 +139,6 @@ UnaryOp
 		auto ast = new UnaryOp("!");
 		$$ = ast;
 	};
-
-AddExp
-	: MulExp {
-		auto ast = new MulAddExp($1);
-		$$ = ast;
-	}
-	| AddExp '+' MulExp {
-		auto ast = new OpAddExp($1, "+", $3);
-		$$ = ast;
-	}
-	| AddExp '-' MulExp {
-		auto ast = new OpAddExp($1, "-", $3);
-		$$ = ast;
-	}
 
 MulExp
 	: UnaryExp {
@@ -170,7 +156,78 @@ MulExp
 	| MulExp '%' UnaryExp {
 		auto ast = new OpMulExp($1, "%", $3);
 		$$ = ast;
+	};
+
+
+AddExp
+	: MulExp {
+		auto ast = new MulAddExp($1);
+		$$ = ast;
 	}
+	| AddExp '+' MulExp {
+		auto ast = new OpAddExp($1, "+", $3);
+		$$ = ast;
+	}
+	| AddExp '-' MulExp {
+		auto ast = new OpAddExp($1, "-", $3);
+		$$ = ast;
+	};
+
+RelExp
+	: AddExp {
+		auto ast = new AddRelExp($1);
+		$$ = ast;
+	}
+	| RelExp '<' AddExp {
+		auto ast = new OpRelExp($1, "<", $3);
+		$$ = ast;
+	}
+	| RelExp '>' AddExp {
+		auto ast = new OpRelExp($1, ">", $3);
+		$$ = ast;
+	}
+	| RelExp LE AddExp {
+		auto ast = new OpRelExp($1, "<=", $3);
+		$$ = ast;
+	}
+	| RelExp GE AddExp {
+		auto ast = new OpRelExp($1, ">=", $3);
+		$$ = ast;
+	};
+
+EqExp
+	: RelExp {
+		auto ast = new RelEqExp($1);
+		$$ = ast;
+	}
+	| EqExp EQ RelExp {
+		auto ast = new OpEqExp($1, "==", $3);
+		$$ = ast;
+	}
+	| EqExp NE RelExp {
+		auto ast = new OpEqExp($1, "!=", $3);
+		$$ = ast;
+	};
+
+LAndExp
+	: EqExp {
+		auto ast = new EqLAndExp($1);
+		$$ = ast;
+	}
+	| LAndExp AND EqExp {
+		auto ast = new OpLAndExp($1, $3);
+		$$ = ast;
+	};
+
+LOrExp
+	: LAndExp {
+		auto ast = new LAndLOrExp($1);
+		$$ = ast;
+	}
+	| LOrExp OR LAndExp {
+		auto ast = new OpLOrExp($1, $3);
+		$$ = ast;
+	};
 %%
 
 // 定义错误处理函数, 其中第二个参数是错误信息

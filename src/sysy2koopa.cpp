@@ -24,6 +24,15 @@ unique_ptr<koopa::Value> GetPrimExp(const unique_ptr<sysy::PrimaryExp> &ast,
 	return nullptr;
 }
 
+unique_ptr<koopa::Value> AddBinExp(unique_ptr<koopa::BinaryExpr> bin_exp,
+	vector<unique_ptr<koopa::Statement> > &stmts) {
+	auto new_symb_def = make_unique<koopa::BinExprDef>(
+		"%" + to_string(temp_var_counter++), move(bin_exp));
+	auto new_stmt = make_unique<koopa::SymbolDefStmt>(move(new_symb_def));
+	stmts.push_back(move(new_stmt));
+	return make_unique<koopa::SymbolValue>("%" + to_string(temp_var_counter - 1));
+}
+
 unique_ptr<koopa::Value> GetUnaryExp(const unique_ptr<sysy::UnaryExp> &ast,
 	vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->exp_type == sysy::PRIMUNARYEXP) {
@@ -41,11 +50,7 @@ unique_ptr<koopa::Value> GetUnaryExp(const unique_ptr<sysy::UnaryExp> &ast,
 			auto new_zero_val = make_unique<koopa::IntValue>(0);
 			auto new_bin_exp = make_unique<koopa::BinaryExpr>(
 				inst, move(new_zero_val), move(ptr));
-			auto new_symb_def = make_unique<koopa::BinExprDef>(
-				"%" + to_string(temp_var_counter++), move(new_bin_exp));
-			auto new_stmt = make_unique<koopa::SymbolDefStmt>(move(new_symb_def));
-			stmts.push_back(move(new_stmt));
-			return make_unique<koopa::SymbolValue>("%" + to_string(temp_var_counter - 1));
+			return AddBinExp(move(new_bin_exp), stmts);
 		}
 	}
 	return nullptr;
@@ -62,11 +67,7 @@ unique_ptr<koopa::Value> GetMulExp(const unique_ptr<sysy::MulExp> &ast,
 		string inst = mul2inst[new_ast->op];
 		auto new_bin_exp = make_unique<koopa::BinaryExpr>(inst,
 			GetMulExp(new_ast->mul_exp, stmts), GetUnaryExp(new_ast->unary_exp, stmts));
-		auto new_symb_def = make_unique<koopa::BinExprDef>(
-			"%" + to_string(temp_var_counter++), move(new_bin_exp));
-		auto new_stmt = make_unique<koopa::SymbolDefStmt>(move(new_symb_def));
-		stmts.push_back(move(new_stmt));
-		return make_unique<koopa::SymbolValue>("%" + to_string(temp_var_counter - 1));
+		return AddBinExp(move(new_bin_exp), stmts);
 	}
 	return nullptr;
 }
@@ -82,18 +83,88 @@ unique_ptr<koopa::Value> GetAddExp(const unique_ptr<sysy::AddExp> &ast,
 		string inst = add2inst[new_ast->op];
 		auto new_bin_exp = make_unique<koopa::BinaryExpr>(inst,
 			GetAddExp(new_ast->add_exp, stmts), GetMulExp(new_ast->mul_exp, stmts));
-		auto new_symb_def = make_unique<koopa::BinExprDef>(
-			"%" + to_string(temp_var_counter++), move(new_bin_exp));
-		auto new_stmt = make_unique<koopa::SymbolDefStmt>(move(new_symb_def));
-		stmts.push_back(move(new_stmt));
-		return make_unique<koopa::SymbolValue>("%" + to_string(temp_var_counter - 1));
+		return AddBinExp(move(new_bin_exp), stmts);
+	}
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetRelExp(const unique_ptr<sysy::RelExp> &ast,
+	vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->rel_type == sysy::ADDRELEXP) {
+		auto new_ast = static_cast<sysy::AddRelExp*>(ast.get());
+		return GetAddExp(new_ast->exp, stmts);
+	} else {
+		auto new_ast = static_cast<sysy::OpRelExp*>(ast.get());
+		map<string, string> rel2inst({{"<", "lt"}, {">", "gt"}, {"<=", "le"}, {">=", "ge"}});
+		string inst = rel2inst[new_ast->op];
+		auto new_bin_exp = make_unique<koopa::BinaryExpr>(inst,
+			GetRelExp(new_ast->rel_exp, stmts), GetAddExp(new_ast->add_exp, stmts));
+		return AddBinExp(move(new_bin_exp), stmts);
+	}
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetEqExp(const unique_ptr<sysy::EqExp> &ast,
+	vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->eq_type == sysy::RELEQEXP) {
+		auto new_ast = static_cast<sysy::RelEqExp*>(ast.get());
+		return GetRelExp(new_ast->exp, stmts);
+	} else {
+		auto new_ast = static_cast<sysy::OpEqExp*>(ast.get());
+		map<string, string> rel2inst({{"==", "eq"}, {"!=", "ne"}});
+		string inst = rel2inst[new_ast->op];
+		auto new_bin_exp = make_unique<koopa::BinaryExpr>(inst,
+			GetEqExp(new_ast->eq_exp, stmts), GetRelExp(new_ast->rel_exp, stmts));
+		return AddBinExp(move(new_bin_exp), stmts);
+	}
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetLAndExp(const unique_ptr<sysy::LAndExp> &ast,
+	vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->land_type == sysy::EQLANDEXP) {
+		auto new_ast = static_cast<sysy::EqLAndExp*>(ast.get());
+		return GetEqExp(new_ast->exp, stmts);
+	} else {
+		auto new_ast = static_cast<sysy::OpLAndExp*>(ast.get());
+		auto l_exp = GetLAndExp(new_ast->land_exp, stmts);
+		auto r_exp = GetEqExp(new_ast->eq_exp, stmts);
+		auto l_0 = make_unique<koopa::IntValue>(0);
+		auto r_0 = make_unique<koopa::IntValue>(0);
+		auto l_logi = make_unique<koopa::BinaryExpr>("ne", move(l_0), move(l_exp));
+		auto l_val = AddBinExp(move(l_logi), stmts);
+		auto r_logi = make_unique<koopa::BinaryExpr>("ne", move(r_0), move(r_exp));
+		auto r_val = AddBinExp(move(r_logi), stmts);
+		auto and_exp = make_unique<koopa::BinaryExpr>("and", move(l_val), move(r_val));
+		return AddBinExp(move(and_exp), stmts);
+	}
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetLOrExp(const unique_ptr<sysy::LOrExp> &ast,
+	vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->lor_type == sysy::LANDLOREXP) {
+		auto new_ast = static_cast<sysy::LAndLOrExp*>(ast.get());
+		return GetLAndExp(new_ast->exp, stmts);
+	} else {
+		auto new_ast = static_cast<sysy::OpLOrExp*>(ast.get());
+		auto l_exp = GetLOrExp(new_ast->lor_exp, stmts);
+		auto r_exp = GetLAndExp(new_ast->land_exp, stmts);
+		auto l_0 = make_unique<koopa::IntValue>(0);
+		auto r_0 = make_unique<koopa::IntValue>(0);
+		auto l_logi = make_unique<koopa::BinaryExpr>("ne", move(l_0), move(l_exp));
+		auto l_val = AddBinExp(move(l_logi), stmts);
+		auto r_logi = make_unique<koopa::BinaryExpr>("ne", move(r_0), move(r_exp));
+		auto r_val = AddBinExp(move(r_logi), stmts);
+		auto or_exp = make_unique<koopa::BinaryExpr>("or", move(l_val), move(r_val));
+		return AddBinExp(move(or_exp), stmts);
 	}
 	return nullptr;
 }
 
 unique_ptr<koopa::Value> GetExp(const unique_ptr<sysy::Exp> &ast,
 			vector<unique_ptr<koopa::Statement> > &stmts) {
-		return GetAddExp(ast->exp, stmts);
+		return GetLOrExp(ast->exp, stmts);
 }
 
 unique_ptr<koopa::Return> GetStmt(const unique_ptr<sysy::Stmt> &ast,

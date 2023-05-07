@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdio>
 #include <iostream>
+#include <fstream>
 #include <memory>
 #include <string>
 #include "sysy.hpp"
@@ -39,6 +40,9 @@ int main(int argc, const char *argv[]) {
   ast->Dump();
   cout << endl;
   auto koopa = GetProgram(move(ast));
-  cout << koopa->Str();
+  string code_koopa = koopa->Str();
+  ofstream outfile;
+  outfile.open(output, ios::out | ios::trunc);
+  outfile << code_koopa;
   return 0;
 }
