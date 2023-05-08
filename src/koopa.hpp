@@ -103,7 +103,7 @@ class Aggregate {
 		Aggregate(std::vector<std::unique_ptr<Aggregate> > a): inits(std::move(a)){}
 		std::string Str() const {
 			std::string s("{");
-			for (auto &ptr: inits) {
+			for (const auto &ptr: inits) {
 				s += ptr->Str();
 				s += ", ";
 			}
@@ -232,7 +232,7 @@ class FunCall {
 		std::string Str() const {
 			std::string s("call" + symbol + "(");
 			if (!params.empty()) {
-				for (auto &p: params)
+				for (const auto &p: params)
 					s += p->Str() + ", ";
 				s.erase(s.end() - 2, s.end());
 			}
@@ -466,7 +466,7 @@ class Block {
 			symbol(s), stmts(std::move(v)), end_stmt(std::move(p)){}
 		std::string Str() const {
 			std::string s(symbol + ":\n");
-			for (auto &ptr: stmts)
+			for (const auto &ptr: stmts)
 				s += ptr->Str() + "\n";
 			s += end_stmt->Str();
 			return s;
@@ -482,7 +482,7 @@ class FunBody {
 			blocks(std::move(s)){}
 		std::string Str() const {
 			std::string s;
-			for (auto &ptr: blocks)
+			for (const auto &ptr: blocks)
 				s += ptr->Str() + "\n";
 			return s;
 		}
@@ -497,7 +497,7 @@ class FunParams {
 			params(std::move(v)){}
 		std::string Str() const {
 			std::string s;
-			for (auto &pr: params)
+			for (const auto &pr: params)
 				s += pr.first + ": " + pr.second->Str() + ", ";
 			s.erase(s.end()-2, s.end());
 			return s;
@@ -537,9 +537,9 @@ class Program {
 			global_vars(std::move(p)), funcs(std::move(q)){}
 		std::string Str() const {
 			std::string s;
-			for (auto &ptr: global_vars)
+			for (const auto &ptr: global_vars)
 				s += ptr->Str() + "\n";
-			for (auto &ptr: funcs)
+			for (const auto &ptr: funcs)
 				s += ptr->Str();
 			return s;
 		}

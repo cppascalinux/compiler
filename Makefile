@@ -12,10 +12,10 @@ endif
 
 # Flags
 CFLAGS := -Wall -std=c11
-CXXFLAGS := -Wall -Wno-register -std=c++17
+CXXFLAGS := -Wall -Wno-register -std=c++17 -fsanitize=address
 FFLAGS :=
 BFLAGS := -d
-LDFLAGS :=
+LDFLAGS := -fsanitize=address
 
 # Debug flags
 DEBUG ?= 1

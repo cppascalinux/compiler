@@ -34,16 +34,18 @@ void yyerror(std::unique_ptr<CompUnit> &ast, const char *s);
 	std::string *str_val;
 	int int_val;
 	sysy::Base *ast_val;
+	void *void_val;
 }
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN LE GE EQ NE AND OR
-%token <str_val> IDENT
+%token INT RETURN ANDOP OROP CONST
+%token <str_val> IDENT RELOP EQOP MULOP ADDOP
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp UnaryOp AddExp MulExp RelExp EqExp LAndExp LOrExp
+%type <void_val> BlockItemList ConstDefList VarDefList
+%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp AddExp MulExp RelExp EqExp LAndExp LOrExp Decl ConstDecl ConstDef ConstInitVal BlockItem LVal ConstExp InitVal VarDef VarDecl
 
 
 %%
@@ -83,14 +85,18 @@ FuncType
 	};
 
 Block
-	: '{' Stmt '}' {
+	: '{' BlockItemList '}' {
 		auto ast = new Block($2);
 		$$ = ast;
 	};
 
 Stmt
 	: RETURN Exp ';' {
-		auto ast = new Stmt($2);
+		auto ast = new ReturnStmt($2);
+		$$ = ast;
+	}
+	| LVal '=' Exp ';' {
+		auto ast = new AssignStmt($1, $3);
 		$$ = ast;
 	};
 
@@ -111,6 +117,10 @@ PrimaryExp
 		auto ast = new BracketExp($2);
 		$$ = ast;
 	}
+	| LVal {
+		auto ast = new LValExp($1);
+		$$ = ast;
+	}
 	| Number {
 		auto ast = new NumberExp($1);
 		$$ = ast;
@@ -121,113 +131,180 @@ UnaryExp
 		auto ast = new PrimUnaryExp($1);
 		$$ = ast;
 	}
-	| UnaryOp UnaryExp {
-		auto ast = new OpUnaryExp($1, $2);
-		$$ = ast;
-	};
-
-UnaryOp
-	: '+' {
-		auto ast = new UnaryOp("+");
+	| ADDOP UnaryExp {
+		auto ast = new OpUnaryExp(*unique_ptr<string>($1), $2);
 		$$ = ast;
 	}
-	| '-' {
-		auto ast = new UnaryOp("-");
-		$$ = ast;
-	}
-	| '!' {
-		auto ast = new UnaryOp("!");
+	| '!' UnaryExp {
+		auto ast = new OpUnaryExp("!", $2);
 		$$ = ast;
 	};
 
 MulExp
 	: UnaryExp {
-		auto ast = new UnaryMulExp($1);
+		auto ast = new MulExp(nullptr, "", $1);
 		$$ = ast;
 	}
-	| MulExp '*' UnaryExp {
-		auto ast = new OpMulExp($1, "*", $3);
-		$$ = ast;
-	}
-	| MulExp '/' UnaryExp {
-		auto ast = new OpMulExp($1, "/", $3);
-		$$ = ast;
-	}
-	| MulExp '%' UnaryExp {
-		auto ast = new OpMulExp($1, "%", $3);
+	| MulExp MULOP UnaryExp {
+		auto ast = new MulExp($1, *unique_ptr<string>($2), $3);
 		$$ = ast;
 	};
 
-
 AddExp
 	: MulExp {
-		auto ast = new MulAddExp($1);
+		auto ast = new AddExp(nullptr, "", $1);
 		$$ = ast;
 	}
-	| AddExp '+' MulExp {
-		auto ast = new OpAddExp($1, "+", $3);
-		$$ = ast;
-	}
-	| AddExp '-' MulExp {
-		auto ast = new OpAddExp($1, "-", $3);
+	| AddExp ADDOP MulExp {
+		auto ast = new AddExp($1, *unique_ptr<string>($2), $3);
 		$$ = ast;
 	};
 
 RelExp
 	: AddExp {
-		auto ast = new AddRelExp($1);
+		auto ast = new RelExp(nullptr, "", $1);
 		$$ = ast;
 	}
-	| RelExp '<' AddExp {
-		auto ast = new OpRelExp($1, "<", $3);
-		$$ = ast;
-	}
-	| RelExp '>' AddExp {
-		auto ast = new OpRelExp($1, ">", $3);
-		$$ = ast;
-	}
-	| RelExp LE AddExp {
-		auto ast = new OpRelExp($1, "<=", $3);
-		$$ = ast;
-	}
-	| RelExp GE AddExp {
-		auto ast = new OpRelExp($1, ">=", $3);
+	| RelExp RELOP AddExp {
+		auto ast = new RelExp($1, *unique_ptr<string>($2), $3);
 		$$ = ast;
 	};
 
 EqExp
 	: RelExp {
-		auto ast = new RelEqExp($1);
+		auto ast = new EqExp(nullptr, "", $1);
 		$$ = ast;
 	}
-	| EqExp EQ RelExp {
-		auto ast = new OpEqExp($1, "==", $3);
+	| EqExp EQOP RelExp {
+		auto ast = new EqExp($1, *unique_ptr<string>($2), $3);
 		$$ = ast;
 	}
-	| EqExp NE RelExp {
-		auto ast = new OpEqExp($1, "!=", $3);
-		$$ = ast;
-	};
 
 LAndExp
 	: EqExp {
-		auto ast = new EqLAndExp($1);
+		auto ast = new LAndExp(nullptr, $1);
 		$$ = ast;
 	}
-	| LAndExp AND EqExp {
-		auto ast = new OpLAndExp($1, $3);
+	| LAndExp ANDOP EqExp {
+		auto ast = new LAndExp($1, $3);
 		$$ = ast;
 	};
 
 LOrExp
 	: LAndExp {
-		auto ast = new LAndLOrExp($1);
+		auto ast = new LOrExp(nullptr, $1);
 		$$ = ast;
 	}
-	| LOrExp OR LAndExp {
-		auto ast = new OpLOrExp($1, $3);
+	| LOrExp OROP LAndExp {
+		auto ast = new LOrExp($1, $3);
 		$$ = ast;
 	};
+
+LVal
+	: IDENT {
+		auto ast = new LVal(*unique_ptr<string>($1));
+		$$ = ast;
+	};
+
+ConstExp
+	: Exp {
+		auto ast = new ConstExp($1);
+		$$ = ast;
+	};
+
+ConstInitVal
+	: ConstExp {
+		auto ast = new ConstInitVal($1);
+		$$ = ast;
+	};
+
+ConstDef
+	: IDENT '=' ConstInitVal {
+		auto ast = new ConstDef(*unique_ptr<string>($1), $3);
+		$$ = ast;
+	};
+
+ConstDefList
+	: ConstDef {
+		auto defs = new vector<unique_ptr<ConstDef> >();
+		defs->emplace_back(static_cast<ConstDef*>($1));
+		$$ = static_cast<void*>(defs);
+	}
+	| ConstDefList ',' ConstDef {
+		auto defs = static_cast<vector<unique_ptr<ConstDef> >*>($1);
+		defs->emplace_back(static_cast<ConstDef*>($3));
+		$$ = static_cast<void*>(defs);
+	};
+
+ConstDecl
+	: CONST INT ConstDefList ';' {
+		auto ast = new ConstDecl($3);
+		$$ = ast;
+	};
+
+Decl
+	: ConstDecl {
+		$$ = $1;
+	}
+	| VarDecl {
+		$$ = $1;
+	};
+
+BlockItem
+	: Decl {
+		auto ast = new DeclBlockItem($1);
+		$$ = ast;
+	}
+	| Stmt {
+		auto ast = new StmtBlockItem($1);
+		$$ = ast;
+	};
+
+BlockItemList
+	: {
+		auto items = new vector<unique_ptr<BlockItem> >();
+		$$ = static_cast<void*>(items);
+	}
+	| BlockItemList BlockItem {
+		auto items = static_cast<vector<unique_ptr<BlockItem> >*>($1);
+		items->emplace_back(static_cast<BlockItem*>($2));
+		$$ = static_cast<void*>(items);
+	};
+
+InitVal
+	: Exp {
+		auto ast = new InitVal($1);
+		$$ = ast;
+	};
+
+VarDef
+	: IDENT {
+		auto ast = new VarDef(*unique_ptr<string>($1), nullptr);
+		$$ = ast;
+	}
+	| IDENT '=' InitVal {
+		auto ast = new VarDef(*unique_ptr<string>($1), $3);
+		$$ = ast;
+	};
+
+VarDefList
+	: VarDef {
+		auto defs = new vector<unique_ptr<VarDef> >();
+		defs->emplace_back(static_cast<VarDef*>($1));
+		$$ = static_cast<void*>(defs);
+	}
+	| VarDefList ',' VarDef {
+		auto defs = static_cast<vector<unique_ptr<VarDef> >*>($1);
+		defs->emplace_back(static_cast<VarDef*>($3));
+		$$ = static_cast<void*>(defs);
+	};
+
+VarDecl
+	: INT VarDefList ';'{
+		auto ast = new VarDecl($2);
+		$$ = ast;
+	};
+
 %%
 
 // 定义错误处理函数, 其中第二个参数是错误信息

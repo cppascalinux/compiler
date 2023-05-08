@@ -12,3 +12,7 @@ void BracketExp::Dump() const {
 	exp->Dump();
 	std::cout << " ) }";
 }
+
+int BracketExp::Eval() const {
+	return exp->Eval();
+}
