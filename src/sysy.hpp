@@ -179,7 +179,7 @@ class MulAddExp: public AddExp {
 		virtual void Dump() const override {
 			std::cout << "AddExp { ";
 			exp->Dump();
-			std::cout << "} ";
+			std::cout << " }";
 		}
 };
 
