@@ -273,13 +273,13 @@ unique_ptr<koopa::FunBody> GetFunBody(const unique_ptr<sysy::Block> &ast) {
 	vector<unique_ptr<koopa::Block> > blocks;
 	vector<unique_ptr<koopa::Statement> > stmts;
 	GetBlock(ast, blocks, stmts);
-	if (!stmts.empty()) {
-		auto ret = make_unique<koopa::Return>(make_unique<koopa::IntValue>(0));
-		auto ret_stmt = make_unique<koopa::ReturnEnd>(move(ret));
-		auto block = make_unique<koopa::Block>("%entry" + to_string(block_counter++),
-			move(stmts), move(ret_stmt));
-		blocks.push_back(move(block));
-	}
+	// if (!stmts.empty()) {
+	// 	auto ret = make_unique<koopa::Return>(make_unique<koopa::IntValue>(0));
+	// 	auto ret_stmt = make_unique<koopa::ReturnEnd>(move(ret));
+	// 	auto block = make_unique<koopa::Block>("%entry" + to_string(block_counter++),
+	// 		move(stmts), move(ret_stmt));
+	// 	blocks.push_back(move(block));
+	// }
 	return make_unique<koopa::FunBody>(move(blocks));
 }
 
