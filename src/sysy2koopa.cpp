@@ -184,24 +184,24 @@ unique_ptr<koopa::Value> GetExp(const unique_ptr<sysy::Exp> &ast,
 unique_ptr<koopa::EndStatement> GetStmt(const unique_ptr<sysy::Stmt> &ast,
 vector<unique_ptr<koopa::Block> > &blocks,
 vector<unique_ptr<koopa::Statement> > &stmts) {
-	if (ast->stmt_type == sysy::RETURNSTMT) {
-		auto new_ast = static_cast<sysy::ReturnStmt*>(ast.get());
-		auto ret = make_unique<koopa::Return>(GetExp(new_ast->exp, stmts));
-		return make_unique<koopa::ReturnEnd>(move(ret));
-	} else if (ast->stmt_type == sysy::ASSIGNSTMT) {
-		auto new_ast = static_cast<sysy::AssignStmt*>(ast.get());
-		auto symb = symtab_stack.GetSymbol(new_ast->lval->ident);
-		assert(symb->symb_type == symtab::VARSYMB);
-		auto var_symb = static_cast<symtab::VarSymb*>(symb);
-		auto rval = GetExp(new_ast->exp, stmts);
-		StoreSymb(var_symb, move(rval), stmts);
-	} else if (ast->stmt_type == sysy::EXPSTMT) {
-		auto new_ast = static_cast<sysy::ExpStmt*>(ast.get());
-		GetExp(new_ast->exp, stmts);
-	} else if (ast->stmt_type == sysy::BLOCKSTMT) {
-		auto new_ast = static_cast<sysy::BlockStmt*>(ast.get());
-		GetBlock(new_ast->block, blocks, stmts);
-	}
+	// if (ast->stmt_type == sysy::RETURNSTMT) {
+	// 	auto new_ast = static_cast<sysy::ReturnStmt*>(ast.get());
+	// 	auto ret = make_unique<koopa::Return>(GetExp(new_ast->exp, stmts));
+	// 	return make_unique<koopa::ReturnEnd>(move(ret));
+	// } else if (ast->stmt_type == sysy::ASSIGNSTMT) {
+	// 	auto new_ast = static_cast<sysy::AssignStmt*>(ast.get());
+	// 	auto symb = symtab_stack.GetSymbol(new_ast->lval->ident);
+	// 	assert(symb->symb_type == symtab::VARSYMB);
+	// 	auto var_symb = static_cast<symtab::VarSymb*>(symb);
+	// 	auto rval = GetExp(new_ast->exp, stmts);
+	// 	StoreSymb(var_symb, move(rval), stmts);
+	// } else if (ast->stmt_type == sysy::EXPSTMT) {
+	// 	auto new_ast = static_cast<sysy::ExpStmt*>(ast.get());
+	// 	GetExp(new_ast->exp, stmts);
+	// } else if (ast->stmt_type == sysy::BLOCKSTMT) {
+	// 	auto new_ast = static_cast<sysy::BlockStmt*>(ast.get());
+	// 	GetBlock(new_ast->block, blocks, stmts);
+	// }
 	return nullptr;
 }
 

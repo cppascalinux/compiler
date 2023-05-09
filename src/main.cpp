@@ -35,15 +35,14 @@ int main(int argc, const char *argv[]) {
   auto ret = yyparse(ast);
   assert(!ret);
 
-  cout << "qweqweqwe" << endl;
   // 输出解析得到的 AST, 其实就是个字符串
   // cout << *ast << endl;
   ast->Dump();
   cout << endl;
-  auto koopa = GetProgram(move(ast));
-  string code_koopa = koopa->Str();
-  ofstream outfile;
-  outfile.open(output, ios::out | ios::trunc);
-  outfile << code_koopa;
+  // auto koopa = GetProgram(move(ast));
+  // string code_koopa = koopa->Str();
+  // ofstream outfile;
+  // outfile.open(output, ios::out | ios::trunc);
+  // outfile << code_koopa;
   return 0;
 }

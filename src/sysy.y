@@ -39,13 +39,13 @@ void yyerror(std::unique_ptr<CompUnit> &ast, const char *s);
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN ANDOP OROP CONST
+%token INT RETURN ANDOP OROP CONST IF ELSE
 %token <str_val> IDENT RELOP EQOP MULOP ADDOP
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
 %type <void_val> BlockItemList ConstDefList VarDefList
-%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp AddExp MulExp RelExp EqExp LAndExp LOrExp Decl ConstDecl ConstDef ConstInitVal BlockItem LVal ConstExp InitVal VarDef VarDecl
+%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp AddExp MulExp RelExp EqExp LAndExp LOrExp Decl ConstDecl ConstDef ConstInitVal BlockItem LVal ConstExp InitVal VarDef VarDecl ClosedIf OpenIf NonIfStmt
 
 
 %%
@@ -91,12 +91,36 @@ Block
 	};
 
 Stmt
-	: RETURN Exp ';' {
-		auto ast = new ReturnStmt($2);
+	: ClosedIf {
+		$$ = $1;
+	}
+	| OpenIf {
+		$$ = $1;
+	};
+
+ClosedIf
+	: NonIfStmt {
+		auto ast = new NonIfClosedIf($1);
 		$$ = ast;
 	}
-	| RETURN ';' {
-		auto ast = new ReturnStmt(nullptr);
+	| IF '(' Exp ')' ClosedIf ELSE ClosedIf {
+		auto ast = new IfElseClosedIf($3, $5, $7);
+		$$ = ast;
+	};
+
+OpenIf
+	: IF '(' Exp ')' Stmt {
+		auto ast = new IfOpenIf($3, $5);
+		$$ = ast;
+	}
+	| IF '(' Exp ')' ClosedIf ELSE OpenIf {
+		auto ast = new IfElseOpenIf($3, $5, $7);
+		$$ = ast;
+	};
+
+NonIfStmt
+	: LVal '=' Exp ';' {
+		auto ast = new AssignStmt($1, $3);
 		$$ = ast;
 	}
 	| Exp ';' {
@@ -111,8 +135,12 @@ Stmt
 		auto ast = new BlockStmt($1);
 		$$ = ast;
 	}
-	| LVal '=' Exp ';' {
-		auto ast = new AssignStmt($1, $3);
+	| RETURN Exp ';' {
+		auto ast = new ReturnStmt($2);
+		$$ = ast;
+	}
+	| RETURN ';' {
+		auto ast = new ReturnStmt(nullptr);
 		$$ = ast;
 	};
 

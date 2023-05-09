@@ -18,20 +18,20 @@ enum SymbolType {
 class Symbol {
 	public:
 		SymbolType symb_type;
-		Symbol(SymbolType a): symb_type(a){}
+		Symbol(SymbolType a): symb_type(a) {}
 		virtual ~Symbol() = default;
 };
 
 class ConstSymb: public Symbol {
 	public:
 		int val;
-		ConstSymb(int x): Symbol(CONSTSYMB), val(x){}
+		ConstSymb(int x): Symbol(CONSTSYMB), val(x) {}
 };
 
 class VarSymb: public Symbol {
 	public:
 		std::string name;
-		VarSymb(std::string s): Symbol(VARSYMB), name(s){}
+		VarSymb(std::string s): Symbol(VARSYMB), name(s) {}
 };
 
 class SymTab {
@@ -54,7 +54,7 @@ class SymTabStack {
 	public:
 		std::vector<std::unique_ptr<SymTab> > symtabs;
 		int total;
-		SymTabStack(): symtabs(), total(0){push();total=0;}
+		SymTabStack(): symtabs(), total(0) {push(); total=0;}
 		void push() {
 			symtabs.push_back(std::make_unique<SymTab>());
 			total++;

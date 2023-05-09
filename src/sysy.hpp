@@ -21,7 +21,7 @@ class Base {
 class Number: public Base {
 	public:
 		int int_const;
-		Number(int x): int_const(x){}
+		Number(int x): int_const(x) {}
 		virtual void Dump() const override {
 			std::cout << "Number { " << int_const << " }";
 		}
@@ -32,7 +32,7 @@ class Number: public Base {
 class LVal: public Base {
 	public:
 		std::string ident;
-		LVal(std::string s): ident(s){}
+		LVal(std::string s): ident(s) {}
 		virtual void Dump() const override {
 			std::cout << "LVal { " << ident << " }";
 		}
@@ -51,7 +51,7 @@ enum PrimaryExpType {
 class PrimaryExp: public Base {
 	public:
 		PrimaryExpType exp_type;
-		PrimaryExp(PrimaryExpType a): exp_type(a){}
+		PrimaryExp(PrimaryExpType a): exp_type(a) {}
 		virtual ~PrimaryExp() override = default;
 		virtual void Dump() const override = 0;
 		virtual int Eval() const = 0;
@@ -69,7 +69,7 @@ class LValExp: public PrimaryExp {
 	public:
 		std::unique_ptr<LVal> lval;
 		LValExp(Base *p): PrimaryExp(LVALEXP),
-			lval(static_cast<LVal*>(p)){}
+			lval(static_cast<LVal*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "PrimaryExp { ";
 			lval->Dump();
@@ -86,7 +86,7 @@ class LValExp: public PrimaryExp {
 class NumberExp: public PrimaryExp {
 	public:
 		std::unique_ptr<Number> num;
-		NumberExp(Base *p): PrimaryExp(NUMBEREXP), num(static_cast<Number*>(p)){}
+		NumberExp(Base *p): PrimaryExp(NUMBEREXP), num(static_cast<Number*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "PrimaryExp { ";
 			num->Dump();
@@ -107,7 +107,7 @@ enum UnaryExpType {
 class UnaryExp: public Base {
 	public:
 		UnaryExpType exp_type;
-		UnaryExp(UnaryExpType a): exp_type(a){}
+		UnaryExp(UnaryExpType a): exp_type(a) {}
 		virtual ~UnaryExp() override = default;
 		virtual void Dump() const override = 0;
 		virtual int Eval() const = 0;
@@ -117,7 +117,7 @@ class PrimUnaryExp: public UnaryExp {
 	public:
 		std::unique_ptr<PrimaryExp> prim_exp;
 		PrimUnaryExp(Base *p):
-			UnaryExp(PRIMUNARYEXP), prim_exp(static_cast<PrimaryExp*>(p)){}
+			UnaryExp(PRIMUNARYEXP), prim_exp(static_cast<PrimaryExp*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "UnaryExp { " << std::endl;
 			prim_exp->Dump();
@@ -133,7 +133,7 @@ class OpUnaryExp: public UnaryExp {
 		std::string op;
 		std::unique_ptr<UnaryExp> exp;
 		OpUnaryExp(std::string s, Base *p): UnaryExp(OPUNARYEXP),
-			op(s), exp(static_cast<UnaryExp*>(p)){}
+			op(s), exp(static_cast<UnaryExp*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "UnaryExp { " << op << " ";
 			exp->Dump();
@@ -157,7 +157,7 @@ class MulExp: public Base {
 		std::string op;
 		std::unique_ptr<UnaryExp> unary_exp;
 		MulExp(Base *p, std::string s, Base *q): mul_exp(static_cast<MulExp*>(p)),
-			op(s), unary_exp(static_cast<UnaryExp*>(q)){}
+			op(s), unary_exp(static_cast<UnaryExp*>(q)) {}
 		virtual void Dump() const override{
 			std::cout << "MulExp { ";
 			if (mul_exp) {
@@ -189,7 +189,7 @@ class AddExp: public Base {
 		std::string op;
 		std::unique_ptr<MulExp> mul_exp;
 		AddExp(Base *p, std::string s, Base *q): add_exp(static_cast<AddExp*>(p)),
-			op(s), mul_exp(static_cast<MulExp*>(q)){}
+			op(s), mul_exp(static_cast<MulExp*>(q)) {}
 		virtual void Dump() const override {
 			std::cout << "AddExp { ";
 			if (add_exp) {
@@ -218,7 +218,7 @@ class RelExp: public Base {
 		std::string op;
 		std::unique_ptr<AddExp> add_exp;
 		RelExp(Base *p, std::string s, Base *q): rel_exp(static_cast<RelExp*>(p)),
-			op(s), add_exp(static_cast<AddExp*>(q)){}
+			op(s), add_exp(static_cast<AddExp*>(q)) {}
 		virtual void Dump() const override {
 			std::cout << "RelExp { ";
 			if (rel_exp) {
@@ -252,7 +252,7 @@ class EqExp: public Base {
 		std::string op;
 		std::unique_ptr<RelExp> rel_exp;
 		EqExp(Base *p, std::string s, Base *q): eq_exp(static_cast<EqExp*>(p)),
-			op(s), rel_exp(static_cast<RelExp*>(q)){}
+			op(s), rel_exp(static_cast<RelExp*>(q)) {}
 		virtual void Dump() const override {
 			std::cout << "EqExp { ";
 			if (eq_exp) {
@@ -281,7 +281,7 @@ class LAndExp: public Base {
 		std::unique_ptr<LAndExp> land_exp;
 		std::unique_ptr<EqExp> eq_exp;
 		LAndExp(Base *p, Base *q): land_exp(static_cast<LAndExp*>(p)),
-			eq_exp(static_cast<EqExp*>(q)){}
+			eq_exp(static_cast<EqExp*>(q)) {}
 		virtual void Dump() const override {
 			std::cout << "LAndExp { ";
 			if (land_exp) {
@@ -308,7 +308,7 @@ class LOrExp: public Base {
 		std::unique_ptr<LOrExp> lor_exp;
 		std::unique_ptr<LAndExp> land_exp;
 		LOrExp(Base *p, Base *q): lor_exp(static_cast<LOrExp*>(p)),
-			land_exp(static_cast<LAndExp*>(q)){}
+			land_exp(static_cast<LAndExp*>(q)) {}
 		virtual void Dump() const override {
 			std::cout << "LOrExp { ";
 			if (lor_exp) {
@@ -333,7 +333,7 @@ class LOrExp: public Base {
 class Exp: public Base {
 	public:
 		std::unique_ptr<LOrExp> exp;
-		Exp(Base *p): exp(static_cast<LOrExp*>(p)){}
+		Exp(Base *p): exp(static_cast<LOrExp*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "Exp { ";
 			exp->Dump();
@@ -349,7 +349,7 @@ class Exp: public Base {
 class ConstExp: public Base {
 	public:
 		std::unique_ptr<Exp> exp;
-		ConstExp(Base *p): exp(static_cast<Exp*>(p)){}
+		ConstExp(Base *p): exp(static_cast<Exp*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "ConstExp {";
 			exp->Dump();
@@ -362,7 +362,7 @@ class ConstExp: public Base {
 class ConstInitVal: public Base {
 	public:
 		std::unique_ptr<ConstExp> const_exp;
-		ConstInitVal(Base *p): const_exp(static_cast<ConstExp*>(p)){}
+		ConstInitVal(Base *p): const_exp(static_cast<ConstExp*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "ConstInitVal { ";
 			const_exp->Dump();
@@ -377,7 +377,7 @@ class ConstDef: public Base {
 		std::string ident;
 		std::unique_ptr<ConstInitVal> val;
 		ConstDef(std::string s, Base *p): ident(s),
-			val(static_cast<ConstInitVal*>(p)){}
+			val(static_cast<ConstInitVal*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "ConstDef { " << ident << " = ";
 			val->Dump();
@@ -390,7 +390,7 @@ class ConstDef: public Base {
 class InitVal: public Base {
 	public:
 		std::unique_ptr<Exp> exp;
-		InitVal(Base *p): exp(static_cast<Exp*>(p)){}
+		InitVal(Base *p): exp(static_cast<Exp*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "InitVal { ";
 			exp->Dump();
@@ -404,7 +404,7 @@ class VarDef: public Base {
 		std::string ident;
 		std::unique_ptr<InitVal> init_val;
 		VarDef(std::string s, Base *p):
-			ident(s), init_val(static_cast<InitVal*>(p)){}
+			ident(s), init_val(static_cast<InitVal*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "VarDef { " << ident;
 			if (init_val) {
@@ -412,14 +412,6 @@ class VarDef: public Base {
 				init_val->Dump();
 			}
 			std::cout << " }";
-		}
-};
-
-// BType         ::= "int";
-class BType: public Base {
-	public:
-		virtual void Dump() const override {
-			std::cout << "BType { int }";
 		}
 };
 
@@ -433,7 +425,7 @@ enum DeclType {
 class Decl: public Base {
 	public:
 		DeclType decl_type;
-		Decl(DeclType a): decl_type(a){}
+		Decl(DeclType a): decl_type(a) {}
 		virtual ~Decl() = default;
 		virtual void Dump() const override = 0;
 };
@@ -445,7 +437,7 @@ class ConstDecl: public Decl {
 		std::vector<std::unique_ptr<ConstDef> > defs;
 		ConstDecl(void *q): Decl(CONSTDECL),
 			defs(move(*std::unique_ptr<std::vector<std::unique_ptr<ConstDef> > >(
-			static_cast<std::vector<std::unique_ptr<ConstDef> >*>(q)))){}
+			static_cast<std::vector<std::unique_ptr<ConstDef> >*>(q)))) {}
 		virtual void Dump() const override {
 			std::cout << "ConstDecl { const int ";
 			for (auto it = defs.begin(); it != defs.end(); it ++) {
@@ -466,7 +458,7 @@ class VarDecl: public Decl {
 		std::vector<std::unique_ptr<VarDef> > defs;
 		VarDecl(void *p): Decl(VARDECL),
 			defs(move(*std::unique_ptr<std::vector<std::unique_ptr<VarDef> > >(
-			static_cast<std::vector<std::unique_ptr<VarDef> >*>(p)))){}
+			static_cast<std::vector<std::unique_ptr<VarDef> >*>(p)))) {}
 		virtual void Dump() const override {
 			std::cout << "VarDecl { int ";
 			for (auto it = defs.begin(); it != defs.end(); it ++) {
@@ -481,28 +473,151 @@ class VarDecl: public Decl {
 };
 
 
-// Stmt        ::= "return" Exp ";";
+// Stmt          ::= ClosedIf
+//                 | OpenIf
 enum StmtType {
+	CLOSEDIF,
+	OPENIF
+};
+
+class Stmt: public Base {
+	public:
+		StmtType stmt_type;
+		Stmt(StmtType a): stmt_type(a) {}
+		virtual ~Stmt() = default;
+		virtual void Dump() const override = 0;
+};
+
+
+
+// NonIfStmt     ::= LVal "=" Exp ";"
+//                 | [Exp] ";"
+//                 | Block
+//                 | "return" [Exp] ";";
+enum NonIfStmtType {
 	ASSIGNSTMT,
 	EXPSTMT,
 	BLOCKSTMT,
 	RETURNSTMT
 };
 
-class Stmt: public Base {
+
+class NonIfStmt: public Base {
 	public:
-		StmtType stmt_type;
-		Stmt(StmtType a): stmt_type(a){}
-		virtual ~Stmt() = default;
+		NonIfStmtType nonif_type;
+		NonIfStmt(NonIfStmtType a): nonif_type(a) {}
+		virtual ~NonIfStmt() = default;
 		virtual void Dump() const override = 0;
 };
 
-class AssignStmt: public Stmt {
+
+// ClosedIf      ::= NonIfStmt
+//                 | "if" "(" Exp ")" CloseIf "else" CloseIf
+enum ClosedIfType {
+	NONIFCLOSEDIF,
+	IFELSECLOSEDIF
+};
+
+class ClosedIf: public Stmt {
+	public:
+		ClosedIfType closed_type;
+		ClosedIf(ClosedIfType a): Stmt(CLOSEDIF), closed_type(a) {}
+		virtual ~ClosedIf() = default;
+		virtual void Dump() const override = 0;
+};
+
+class NonIfClosedIf: public ClosedIf {
+	public:
+		std::unique_ptr<NonIfStmt> stmt;
+		NonIfClosedIf(Base *p): ClosedIf(NONIFCLOSEDIF),
+			stmt(static_cast<NonIfStmt*>(p)) {}
+		virtual void Dump() const override {
+			std::cout << "ClosedIf { ";
+			assert(stmt);
+			stmt->Dump();
+			std::cout << " }";
+		}
+};
+
+class IfElseClosedIf: public ClosedIf {
+	public:
+		std::unique_ptr<Exp> exp;
+		std::unique_ptr<ClosedIf> stmt1, stmt2;
+		IfElseClosedIf(Base *e, Base *p, Base *q): ClosedIf(IFELSECLOSEDIF),
+			exp(static_cast<Exp*>(e)), stmt1(static_cast<ClosedIf*>(p)),
+			stmt2(static_cast<ClosedIf*>(q)) {}
+		virtual void Dump() const override {
+			std::cout << "ClosedIf { if ( ";
+			exp->Dump();
+			std::cout << " ) ";
+			stmt1->Dump();
+			std::cout << " else ";
+			stmt2->Dump();
+			std::cout << " }";
+		}
+};
+
+// OpenIf        ::= "if" "(" Exp ")" Stmt
+//                 | "if" "(" Exp ")" ClosedIf "else" OpenIf
+enum OpenIfType {
+	IFOPENIF,
+	IFELSEOPENIF
+};
+
+class OpenIf: public Stmt {
+	public:
+		OpenIfType open_type;
+		OpenIf(OpenIfType a): Stmt(OPENIF), open_type(a) {}
+		virtual ~OpenIf() = default;
+		virtual void Dump() const override = 0;
+};
+
+class IfOpenIf: public OpenIf {
+	public:
+		std::unique_ptr<Exp> exp;
+		std::unique_ptr<Stmt> stmt;
+		IfOpenIf(Base *p, Base *q): OpenIf(IFOPENIF),
+			exp(static_cast<Exp*>(p)), stmt(static_cast<Stmt*>(q)) {}
+		virtual void Dump() const override {
+			std::cout << "OpenIf { if ( ";
+			exp->Dump();
+			std::cout << " ) ";
+			stmt->Dump();
+			std::cout << " }";
+		}
+};
+
+class IfElseOpenIf: public OpenIf {
+	public:
+		std::unique_ptr<Exp> exp;
+		std::unique_ptr<ClosedIf> stmt1;
+		std::unique_ptr<OpenIf> stmt2;
+		IfElseOpenIf(Base *e, Base *p, Base *q): OpenIf(IFELSEOPENIF),
+			exp(static_cast<Exp*>(e)), stmt1(static_cast<ClosedIf*>(p)),
+			stmt2(static_cast<OpenIf*>(q)) {}
+		virtual void Dump() const override {
+			std::cout << "OpenIf { if ( ";
+			exp->Dump();
+			std::cout << " ) ";
+			stmt1->Dump();
+			std::cout << " else ";
+			stmt2->Dump();
+			std::cout << " }";
+		}
+};
+
+
+// NonIfStmt     ::= LVal "=" Exp ";"
+//                 | [Exp] ";"
+//                 | Block
+//                 | "return" [Exp] ";";
+
+class AssignStmt: public NonIfStmt {
 	public:
 		std::unique_ptr<LVal> lval;
 		std::unique_ptr<Exp> exp;
-		AssignStmt(Base *p, Base *q): Stmt(ASSIGNSTMT),
-			lval(static_cast<LVal*>(p)), exp(static_cast<Exp*>(q)){}
+		AssignStmt(Base *p, Base *q): NonIfStmt(ASSIGNSTMT),
+			lval(static_cast<LVal*>(p)), exp(static_cast<Exp*>(q)) {}
 		virtual void Dump() const override {
 			std::cout << "Stmt { ";
 			lval->Dump();
@@ -512,11 +627,11 @@ class AssignStmt: public Stmt {
 		}
 };
 
-class ExpStmt: public Stmt {
+class ExpStmt: public NonIfStmt {
 	public:
 		std::unique_ptr<Exp> exp;
-		ExpStmt(Base *p): Stmt(EXPSTMT),
-			exp(static_cast<Exp*>(p)){}
+		ExpStmt(Base *p): NonIfStmt(EXPSTMT),
+			exp(static_cast<Exp*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "Stmt { ";
 			if (exp)
@@ -525,11 +640,11 @@ class ExpStmt: public Stmt {
 		}
 };
 
-class ReturnStmt: public Stmt {
+class ReturnStmt: public NonIfStmt {
 	public:
 		std::unique_ptr<Exp> exp;
-		ReturnStmt(Base *p): Stmt(RETURNSTMT),
-			exp(static_cast<Exp*>(p)){}
+		ReturnStmt(Base *p): NonIfStmt(RETURNSTMT),
+			exp(static_cast<Exp*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "Stmt { return ";
 			if (exp)
@@ -547,7 +662,7 @@ enum BlockItemType {
 class BlockItem: public Base {
 	public:
 		BlockItemType item_type;
-		BlockItem(BlockItemType a): item_type(a){}
+		BlockItem(BlockItemType a): item_type(a) {}
 		virtual ~BlockItem() = default;
 		virtual void Dump() const override = 0;
 };
@@ -556,7 +671,7 @@ class DeclBlockItem: public BlockItem {
 	public:
 		std::unique_ptr<Decl> decl;
 		DeclBlockItem(Base *p): BlockItem(DECLBLOCKITEM),
-			decl(static_cast<Decl*>(p)){}
+			decl(static_cast<Decl*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "BlockItem { ";
 			decl->Dump();
@@ -568,7 +683,7 @@ class StmtBlockItem: public BlockItem {
 	public:
 		std::unique_ptr<Stmt> stmt;
 		StmtBlockItem(Base *p): BlockItem(STMTBLOCKITEM),
-			stmt(static_cast<Stmt*>(p)){}
+			stmt(static_cast<Stmt*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "BlockItem { ";
 			stmt->Dump();
@@ -583,7 +698,7 @@ class Block: public Base {
 	public:
 		std::vector<std::unique_ptr<BlockItem> > items;
 		Block(void *p): items(std::move(*std::unique_ptr<std::vector<std::unique_ptr<BlockItem> > >(
-			static_cast<std::vector<std::unique_ptr<BlockItem> >*>(p)))){}
+			static_cast<std::vector<std::unique_ptr<BlockItem> >*>(p)))) {}
 		virtual void Dump() const override {
 			std::cout << "Block { ";
 			for (const auto &ptr: items) {
@@ -594,11 +709,11 @@ class Block: public Base {
 		}
 };
 
-class BlockStmt: public Stmt {
+class BlockStmt: public NonIfStmt {
 	public:
 		std::unique_ptr<Block> block;
-		BlockStmt(Base *p): Stmt(BLOCKSTMT),
-			block(static_cast<Block*>(p)){}
+		BlockStmt(Base *p): NonIfStmt(BLOCKSTMT),
+			block(static_cast<Block*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "Stmt { ";
 			block->Dump();
@@ -624,7 +739,7 @@ class FuncDef: public Base {
 		std::unique_ptr<Block> block;
 		FuncDef(Base *p, std::string s, Base *q):
 			func_type(static_cast<FuncType*>(p)), ident(s),
-			block(static_cast<Block*>(q)){}
+			block(static_cast<Block*>(q)) {}
 		virtual void Dump() const override {
 			std::cout << "FuncDef { ";
 			func_type->Dump();
@@ -638,7 +753,7 @@ class FuncDef: public Base {
 class CompUnit: public Base {
 	public:
 		std::unique_ptr<FuncDef> func_def;
-		CompUnit(Base *p): func_def(static_cast<FuncDef*>(p)){}
+		CompUnit(Base *p): func_def(static_cast<FuncDef*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "CompUnit { ";
 			func_def->Dump();
