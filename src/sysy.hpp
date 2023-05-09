@@ -175,8 +175,7 @@ class MulExp: public Base {
 					return mul_val*unary_val;
 				else if (op == "/")
 					return mul_val/unary_val;
-				else
-					return mul_val%unary_val;
+				return mul_val%unary_val;
 			}
 			return unary_val;
 		}
@@ -206,8 +205,7 @@ class AddExp: public Base {
 				int add_val = add_exp->Eval();
 				if (op == "+")
 					return add_val + mul_val;
-				else
-					return add_val - mul_val;
+				return add_val - mul_val;
 			}
 			return mul_val;
 		}
@@ -240,8 +238,7 @@ class RelExp: public Base {
 					return rel_val > add_val;
 				else if (op == "<=")
 					return rel_val <= add_val;
-				else if (op == ">=")
-					return rel_val >= add_val;
+				return rel_val >= add_val;
 			}
 			return add_val;
 		}
@@ -298,7 +295,7 @@ class LAndExp: public Base {
 			int eq_val = eq_exp->Eval();
 			if (land_exp) {
 				int land_val = land_exp->Eval();
-				return land_val && eq_exp;
+				return land_val && eq_val;
 			}
 			return eq_val;
 		}
