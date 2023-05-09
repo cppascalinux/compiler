@@ -16,9 +16,9 @@ int temp_var_counter = 0;
 int block_counter = 0;
 string next_block_symbol;
 
-unique_ptr<koopa::Value> LoadSymb(const symtab::VarSymb *var_symb,
+unique_ptr<koopa::Value> LoadSymb(string symb,
 vector<unique_ptr<koopa::Statement> > &stmts) {
-	auto load = make_unique<koopa::Load>(var_symb->name);
+	auto load = make_unique<koopa::Load>(symb);
 	auto load_def = make_unique<koopa::LoadDef>(
 		"%" + to_string(temp_var_counter++), move(load));
 	auto load_stmt = make_unique<koopa::SymbolDefStmt>(move(load_def));
@@ -26,160 +26,19 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 	return make_unique<koopa::SymbolValue>("%" + to_string(temp_var_counter - 1));
 }
 
-void StoreSymb(const symtab::VarSymb *var_symb,
-	unique_ptr<koopa::Value> val, vector<unique_ptr<koopa::Statement> > &stmts) {
-	auto store = make_unique<koopa::ValueStore>(move(val), var_symb->name);
+void StoreSymb(string symb, unique_ptr<koopa::Value> val,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	auto store = make_unique<koopa::ValueStore>(move(val), symb);
 	auto store_stmt = make_unique<koopa::StoreStmt>(move(store));
 	stmts.push_back(move(store_stmt));
 }
 
-unique_ptr<koopa::Value> GetPrimExp(const unique_ptr<sysy::PrimaryExp> &ast,
+void AllocSymb(string symb,
 vector<unique_ptr<koopa::Statement> > &stmts) {
-	if (ast->exp_type == sysy::BRACKETEXP) {
-		auto new_ast = static_cast<sysy::BracketExp*>(ast.get());
-		return GetExp(new_ast->exp, stmts);
-	} else if (ast->exp_type == sysy::NUMBEREXP){
-		auto new_ast = static_cast<sysy::NumberExp*>(ast.get());
-		return make_unique<koopa::IntValue>(new_ast->num->int_const);
-	} else {
-		auto new_ast = static_cast<sysy::LValExp*>(ast.get());
-		auto symb = symtab_stack.GetSymbol(new_ast->lval->ident);
-		if (symb->symb_type == symtab::CONSTSYMB) {
-			auto const_symb = static_cast<symtab::ConstSymb*>(symb);
-			return make_unique<koopa::IntValue>(const_symb->val);
-		} else {
-			auto var_symb = static_cast<symtab::VarSymb*>(symb);
-			return LoadSymb(var_symb, stmts);
-		}
-	}
-	return nullptr;
-}
-
-unique_ptr<koopa::Value> AddBinExp(unique_ptr<koopa::BinaryExpr> bin_exp,
-vector<unique_ptr<koopa::Statement> > &stmts) {
-	auto new_symb_def = make_unique<koopa::BinExprDef>(
-		"%" + to_string(temp_var_counter++), move(bin_exp));
-	auto new_stmt = make_unique<koopa::SymbolDefStmt>(move(new_symb_def));
-	stmts.push_back(move(new_stmt));
-	return make_unique<koopa::SymbolValue>("%" + to_string(temp_var_counter - 1));
-}
-
-unique_ptr<koopa::Value> GetUnaryExp(const unique_ptr<sysy::UnaryExp> &ast,
-vector<unique_ptr<koopa::Statement> > &stmts) {
-	if (ast->exp_type == sysy::PRIMUNARYEXP) {
-		auto new_ast = static_cast<sysy::PrimUnaryExp*>(ast.get());
-		return GetPrimExp(new_ast->prim_exp, stmts);
-	} else {
-		auto new_ast = static_cast<sysy::OpUnaryExp*>(ast.get());
-		map<string, string> unary2inst({{"+", "add"}, {"-", "sub"}, {"!", "eq"}});
-		string inst = unary2inst[new_ast->op];
-		const auto &exp = new_ast->exp;
-		if (inst == "add")
-			return GetUnaryExp(exp, stmts);
-		else {
-			auto ptr = GetUnaryExp(exp, stmts);
-			auto new_zero_val = make_unique<koopa::IntValue>(0);
-			auto new_bin_exp = make_unique<koopa::BinaryExpr>(
-				inst, move(new_zero_val), move(ptr));
-			return AddBinExp(move(new_bin_exp), stmts);
-		}
-	}
-	return nullptr;
-}
-
-unique_ptr<koopa::Value> GetMulExp(const unique_ptr<sysy::MulExp> &ast,
-vector<unique_ptr<koopa::Statement> > &stmts) {
-	if (ast->mul_exp) {
-		map<string, string> mul2inst({{"*", "mul"}, {"/", "div"}, {"%", "mod"}});
-		string inst = mul2inst[ast->op];
-		auto bin_exp = make_unique<koopa::BinaryExpr>(inst,
-			GetMulExp(ast->mul_exp, stmts), GetUnaryExp(ast->unary_exp, stmts));
-		return AddBinExp(move(bin_exp), stmts);
-	} else
-		return GetUnaryExp(ast->unary_exp, stmts);
-	return nullptr;
-}
-
-unique_ptr<koopa::Value> GetAddExp(const unique_ptr<sysy::AddExp> &ast, 
-vector<unique_ptr<koopa::Statement> > &stmts) {
-	if (ast->add_exp) {
-		map<string, string> add2inst({{"+", "add"}, {"-", "sub"}});
-		string inst = add2inst[ast->op];
-		auto bin_exp = make_unique<koopa::BinaryExpr>(inst,
-			GetAddExp(ast->add_exp, stmts), GetMulExp(ast->mul_exp, stmts));
-		return AddBinExp(move(bin_exp), stmts);
-	} else
-		return GetMulExp(ast->mul_exp, stmts);
-	return nullptr;
-}
-
-unique_ptr<koopa::Value> GetRelExp(const unique_ptr<sysy::RelExp> &ast,
-vector<unique_ptr<koopa::Statement> > &stmts) {
-	if (ast->rel_exp) {
-		map<string, string> rel2inst({{"<", "lt"}, {">", "gt"}, {"<=", "le"}, {">=", "ge"}});
-		string inst = rel2inst[ast->op];
-		auto bin_exp = make_unique<koopa::BinaryExpr>(inst,
-			GetRelExp(ast->rel_exp, stmts), GetAddExp(ast->add_exp, stmts));
-		return AddBinExp(move(bin_exp), stmts);
-	} else
-		return GetAddExp(ast->add_exp, stmts);
-	return nullptr;
-}
-
-unique_ptr<koopa::Value> GetEqExp(const unique_ptr<sysy::EqExp> &ast,
-vector<unique_ptr<koopa::Statement> > &stmts) {
-	if (ast->eq_exp) {
-		map<string, string> rel2inst({{"==", "eq"}, {"!=", "ne"}});
-		string inst = rel2inst[ast->op];
-		auto bin_exp = make_unique<koopa::BinaryExpr>(inst,
-			GetEqExp(ast->eq_exp, stmts), GetRelExp(ast->rel_exp, stmts));
-		return AddBinExp(move(bin_exp), stmts);
-	} else
-		return GetRelExp(ast->rel_exp, stmts);
-	return nullptr;
-}
-
-unique_ptr<koopa::Value> GetLAndExp(const unique_ptr<sysy::LAndExp> &ast,
-vector<unique_ptr<koopa::Statement> > &stmts) {
-	if (ast->land_exp) {
-		auto l_exp = GetLAndExp(ast->land_exp, stmts);
-		auto r_exp = GetEqExp(ast->eq_exp, stmts);
-		auto l_0 = make_unique<koopa::IntValue>(0);
-		auto r_0 = make_unique<koopa::IntValue>(0);
-		auto l_logi = make_unique<koopa::BinaryExpr>("ne", move(l_0), move(l_exp));
-		auto l_val = AddBinExp(move(l_logi), stmts);
-		auto r_logi = make_unique<koopa::BinaryExpr>("ne", move(r_0), move(r_exp));
-		auto r_val = AddBinExp(move(r_logi), stmts);
-		auto and_exp = make_unique<koopa::BinaryExpr>("and", move(l_val), move(r_val));
-		return AddBinExp(move(and_exp), stmts);
-	} else
-		return GetEqExp(ast->eq_exp, stmts);
-	return nullptr;
-}
-
-unique_ptr<koopa::Value> GetLOrExp(const unique_ptr<sysy::LOrExp> &ast,
-vector<unique_ptr<koopa::Statement> > &stmts) {
-	if (ast->lor_exp) {
-		auto l_exp = GetLOrExp(ast->lor_exp, stmts);
-		auto r_exp = GetLAndExp(ast->land_exp, stmts);
-		auto l_0 = make_unique<koopa::IntValue>(0);
-		auto r_0 = make_unique<koopa::IntValue>(0);
-		auto l_logi = make_unique<koopa::BinaryExpr>("ne", move(l_0), move(l_exp));
-		auto l_val = AddBinExp(move(l_logi), stmts);
-		auto r_logi = make_unique<koopa::BinaryExpr>("ne", move(r_0), move(r_exp));
-		auto r_val = AddBinExp(move(r_logi), stmts);
-		auto or_exp = make_unique<koopa::BinaryExpr>("or", move(l_val), move(r_val));
-		return AddBinExp(move(or_exp), stmts);
-	} else
-		return GetLAndExp(ast->land_exp, stmts);
-	return nullptr;
-}
-
-unique_ptr<koopa::Value> GetExp(const unique_ptr<sysy::Exp> &ast,
-			vector<unique_ptr<koopa::Statement> > &stmts) {
-	if (!ast)
-		return nullptr;
-	return GetLOrExp(ast->exp, stmts);
+	auto mem_alloc = make_unique<koopa::MemoryDec>(make_shared<koopa::IntType>());
+	auto mem_def = make_unique<koopa::MemoryDef>(symb, move(mem_alloc));
+	auto mem_stmt = make_unique<koopa::SymbolDefStmt>(move(mem_def));
+	stmts.push_back(move(mem_stmt));
 }
 
 unique_ptr<koopa::Block> MakeKoopaBlock(
@@ -197,12 +56,218 @@ unique_ptr<koopa::EndStatement> end_stmt) {
 	return block;
 }
 
+
+unique_ptr<koopa::Value> AddBinExp(unique_ptr<koopa::BinaryExpr> bin_exp,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	auto new_symb_def = make_unique<koopa::BinExprDef>(
+		"%" + to_string(temp_var_counter++), move(bin_exp));
+	auto new_stmt = make_unique<koopa::SymbolDefStmt>(move(new_symb_def));
+	stmts.push_back(move(new_stmt));
+	return make_unique<koopa::SymbolValue>("%" + to_string(temp_var_counter - 1));
+}
+
+unique_ptr<koopa::Value> GetPrimExp(const unique_ptr<sysy::PrimaryExp> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->exp_type == sysy::BRACKETEXP) {
+		auto new_ast = static_cast<sysy::BracketExp*>(ast.get());
+		return GetExp(new_ast->exp, blocks, stmts);
+	} else if (ast->exp_type == sysy::NUMBEREXP){
+		auto new_ast = static_cast<sysy::NumberExp*>(ast.get());
+		return make_unique<koopa::IntValue>(new_ast->num->int_const);
+	} else {
+		auto new_ast = static_cast<sysy::LValExp*>(ast.get());
+		auto symb = symtab_stack.GetSymbol(new_ast->lval->ident);
+		if (symb->symb_type == symtab::CONSTSYMB) {
+			auto const_symb = static_cast<symtab::ConstSymb*>(symb);
+			return make_unique<koopa::IntValue>(const_symb->val);
+		} else {
+			auto var_symb = static_cast<symtab::VarSymb*>(symb);
+			return LoadSymb(var_symb->name, stmts);
+		}
+	}
+	return nullptr;
+}
+
+
+unique_ptr<koopa::Value> GetUnaryExp(const unique_ptr<sysy::UnaryExp> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->exp_type == sysy::PRIMUNARYEXP) {
+		auto new_ast = static_cast<sysy::PrimUnaryExp*>(ast.get());
+		return GetPrimExp(new_ast->prim_exp, blocks, stmts);
+	} else {
+		auto new_ast = static_cast<sysy::OpUnaryExp*>(ast.get());
+		map<string, string> unary2inst({{"+", "add"}, {"-", "sub"}, {"!", "eq"}});
+		string inst = unary2inst[new_ast->op];
+		const auto &exp = new_ast->exp;
+		if (inst == "add")
+			return GetUnaryExp(exp, blocks, stmts);
+		else {
+			auto ptr = GetUnaryExp(exp, blocks, stmts);
+			auto new_zero_val = make_unique<koopa::IntValue>(0);
+			auto new_bin_exp = make_unique<koopa::BinaryExpr>(
+				inst, move(new_zero_val), move(ptr));
+			return AddBinExp(move(new_bin_exp), stmts);
+		}
+	}
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetMulExp(const unique_ptr<sysy::MulExp> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->mul_exp) {
+		map<string, string> mul2inst({{"*", "mul"}, {"/", "div"}, {"%", "mod"}});
+		string inst = mul2inst[ast->op];
+		auto bin_exp = make_unique<koopa::BinaryExpr>(inst,
+			GetMulExp(ast->mul_exp, blocks, stmts), GetUnaryExp(ast->unary_exp, blocks, stmts));
+		return AddBinExp(move(bin_exp), stmts);
+	} else
+		return GetUnaryExp(ast->unary_exp, blocks, stmts);
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetAddExp(const unique_ptr<sysy::AddExp> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->add_exp) {
+		map<string, string> add2inst({{"+", "add"}, {"-", "sub"}});
+		string inst = add2inst[ast->op];
+		auto bin_exp = make_unique<koopa::BinaryExpr>(inst,
+			GetAddExp(ast->add_exp, blocks, stmts), GetMulExp(ast->mul_exp, blocks, stmts));
+		return AddBinExp(move(bin_exp), stmts);
+	} else
+		return GetMulExp(ast->mul_exp, blocks, stmts);
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetRelExp(const unique_ptr<sysy::RelExp> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->rel_exp) {
+		map<string, string> rel2inst({{"<", "lt"}, {">", "gt"}, {"<=", "le"}, {">=", "ge"}});
+		string inst = rel2inst[ast->op];
+		auto bin_exp = make_unique<koopa::BinaryExpr>(inst,
+			GetRelExp(ast->rel_exp, blocks, stmts), GetAddExp(ast->add_exp, blocks, stmts));
+		return AddBinExp(move(bin_exp), stmts);
+	} else
+		return GetAddExp(ast->add_exp, blocks, stmts);
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetEqExp(const unique_ptr<sysy::EqExp> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->eq_exp) {
+		map<string, string> rel2inst({{"==", "eq"}, {"!=", "ne"}});
+		string inst = rel2inst[ast->op];
+		auto bin_exp = make_unique<koopa::BinaryExpr>(inst,
+			GetEqExp(ast->eq_exp, blocks, stmts), GetRelExp(ast->rel_exp, blocks, stmts));
+		return AddBinExp(move(bin_exp), stmts);
+	} else
+		return GetRelExp(ast->rel_exp, blocks, stmts);
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetLAndExp(const unique_ptr<sysy::LAndExp> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->land_exp) {
+		string then_symb = "%shortcircuit_and_true_" + to_string(block_counter++);
+		string else_symb = "%shortcircuit_and_false_" + to_string(block_counter++);
+		string end_symb = "%shortcircuit_and_end_" + to_string(block_counter++);
+		string ret_var = ("%" + to_string(temp_var_counter++));
+		AllocSymb(ret_var, stmts);
+
+		auto l_exp = GetLAndExp(ast->land_exp, blocks, stmts);
+		auto l_0 = make_unique<koopa::IntValue>(0);
+		auto l_logi = make_unique<koopa::BinaryExpr>("ne", move(l_0), move(l_exp));
+		auto l_val = AddBinExp(move(l_logi), stmts);
+		auto br = make_unique<koopa::Branch>(move(l_val), then_symb, else_symb);
+		auto br_end = make_unique<koopa::BranchEnd>(move(br));
+		blocks.push_back(MakeKoopaBlock(stmts, move(br_end)));
+
+		next_block_symbol = then_symb;
+		auto r_0 = make_unique<koopa::IntValue>(0);
+		auto r_exp = GetEqExp(ast->eq_exp, blocks, stmts);
+		auto r_logi = make_unique<koopa::BinaryExpr>("ne", move(r_0), move(r_exp));
+		auto r_val = AddBinExp(move(r_logi), stmts);
+		StoreSymb(ret_var, move(r_val), stmts);
+		auto jmp = make_unique<koopa::Jump>(end_symb);
+		auto jmp_end = make_unique<koopa::JumpEnd>(move(jmp));
+		blocks.push_back(MakeKoopaBlock(stmts, move(jmp_end)));
+
+		next_block_symbol = else_symb;
+		auto val_0 = make_unique<koopa::IntValue>(0);
+		StoreSymb(ret_var, move(val_0), stmts);
+		jmp = make_unique<koopa::Jump>(end_symb);
+		jmp_end = make_unique<koopa::JumpEnd>(move(jmp));
+		blocks.push_back(MakeKoopaBlock(stmts, move(jmp_end)));
+
+		next_block_symbol = end_symb;
+		return LoadSymb(ret_var, stmts);
+	} else
+		return GetEqExp(ast->eq_exp, blocks, stmts);
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetLOrExp(const unique_ptr<sysy::LOrExp> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (ast->lor_exp) {
+		string then_symb = "%shortcircuit_or_true_" + to_string(block_counter++);
+		string else_symb = "%shortcircuit_or_false_" + to_string(block_counter++);
+		string end_symb = "%shortcircuit_or_end_" + to_string(block_counter++);
+		string ret_var = ("%" + to_string(temp_var_counter++));
+		AllocSymb(ret_var, stmts);
+
+		auto l_exp = GetLOrExp(ast->lor_exp, blocks, stmts);
+		auto l_0 = make_unique<koopa::IntValue>(0);
+		auto l_logi = make_unique<koopa::BinaryExpr>("ne", move(l_0), move(l_exp));
+		auto l_val = AddBinExp(move(l_logi), stmts);
+		auto br = make_unique<koopa::Branch>(move(l_val), then_symb, else_symb);
+		auto br_end = make_unique<koopa::BranchEnd>(move(br));
+		blocks.push_back(MakeKoopaBlock(stmts, move(br_end)));
+
+		next_block_symbol = then_symb;
+		auto val_1 = make_unique<koopa::IntValue>(1);
+		StoreSymb(ret_var, move(val_1), stmts);
+		auto jmp = make_unique<koopa::Jump>(end_symb);
+		auto jmp_end = make_unique<koopa::JumpEnd>(move(jmp));
+		blocks.push_back(MakeKoopaBlock(stmts, move(jmp_end)));
+
+		next_block_symbol = else_symb;
+		auto r_0 = make_unique<koopa::IntValue>(0);
+		auto r_exp = GetLAndExp(ast->land_exp, blocks, stmts);
+		auto r_logi = make_unique<koopa::BinaryExpr>("ne", move(r_0), move(r_exp));
+		auto r_val = AddBinExp(move(r_logi), stmts);
+		StoreSymb(ret_var, move(r_val), stmts);
+		jmp = make_unique<koopa::Jump>(end_symb);
+		jmp_end = make_unique<koopa::JumpEnd>(move(jmp));
+		blocks.push_back(MakeKoopaBlock(stmts, move(jmp_end)));
+
+		next_block_symbol = end_symb;
+		return LoadSymb(ret_var, stmts);
+	} else
+		return GetLAndExp(ast->land_exp, blocks, stmts);
+	return nullptr;
+}
+
+unique_ptr<koopa::Value> GetExp(const unique_ptr<sysy::Exp> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (!ast)
+		return nullptr;
+	return GetLOrExp(ast->exp, blocks, stmts);
+}
+
 void GetNonIfStmt(const unique_ptr<sysy::NonIfStmt> &ast,
 vector<unique_ptr<koopa::Block> > &blocks,
 vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->nonif_type == sysy::RETURNSTMT) {
 		auto new_ast = static_cast<sysy::ReturnStmt*>(ast.get());
-		auto ret = make_unique<koopa::Return>(GetExp(new_ast->exp, stmts));
+		auto ret = make_unique<koopa::Return>(GetExp(new_ast->exp, blocks, stmts));
 		auto ret_end = make_unique<koopa::ReturnEnd>(move(ret));
 		blocks.push_back(MakeKoopaBlock(stmts, move(ret_end)));
 	} else if (ast->nonif_type == sysy::ASSIGNSTMT) {
@@ -210,11 +275,11 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 		auto symb = symtab_stack.GetSymbol(new_ast->lval->ident);
 		assert(symb->symb_type == symtab::VARSYMB);
 		auto var_symb = static_cast<symtab::VarSymb*>(symb);
-		auto rval = GetExp(new_ast->exp, stmts);
-		StoreSymb(var_symb, move(rval), stmts);
+		auto rval = GetExp(new_ast->exp, blocks, stmts);
+		StoreSymb(var_symb->name, move(rval), stmts);
 	} else if (ast->nonif_type == sysy::EXPSTMT) {
 		auto new_ast = static_cast<sysy::ExpStmt*>(ast.get());
-		GetExp(new_ast->exp, stmts);
+		GetExp(new_ast->exp, blocks, stmts);
 	} else if (ast->nonif_type == sysy::BLOCKSTMT) {
 		auto new_ast = static_cast<sysy::BlockStmt*>(ast.get());
 		GetBlock(new_ast->block, blocks, stmts);
@@ -229,7 +294,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 		GetNonIfStmt(nonif_ast->stmt, blocks, stmts);
 	} else {
 		auto ifelse_ast = static_cast<sysy::IfElseClosedIf*>(ast.get());
-		auto val = GetExp(ifelse_ast->exp, stmts);
+		auto val = GetExp(ifelse_ast->exp, blocks, stmts);
 		string then_symb = "%if_then_" + to_string(block_counter++);
 		string else_symb = "%if_else_" + to_string(block_counter++);
 		string end_symb = "%if_end_" + to_string(block_counter++);
@@ -255,7 +320,7 @@ vector<unique_ptr<koopa::Block> > &blocks,
 vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->open_type == sysy::IFOPENIF) {
 		auto if_ast = static_cast<sysy::IfOpenIf*>(ast.get());
-		auto val = GetExp(if_ast->exp, stmts);
+		auto val = GetExp(if_ast->exp, blocks, stmts);
 		string then_symb = "%if_then_" + to_string(block_counter++);
 		string end_symb = "%if_end" + to_string(block_counter++);
 		auto br = make_unique<koopa::Branch>(move(val), then_symb, end_symb);
@@ -269,7 +334,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 		next_block_symbol = end_symb;
 	} else {
 		auto ifelse_ast = static_cast<sysy::IfElseOpenIf*>(ast.get());
-		auto val = GetExp(ifelse_ast->exp, stmts);
+		auto val = GetExp(ifelse_ast->exp, blocks, stmts);
 		string then_symb = "%if_then_" + to_string(block_counter++);
 		string else_symb = "%if_else_" + to_string(block_counter++);
 		string end_symb = "%if_end_" + to_string(block_counter++);
@@ -315,18 +380,15 @@ void GetConstDef(const unique_ptr<sysy::ConstDef> &ast) {
 }
 
 void GetVarDef(const unique_ptr<sysy::VarDef> &ast,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	string ident = ast->ident;
 	string name = "@" + ident + "_" + to_string(symtab_stack.GetTotal());
 	auto new_symb = make_unique<symtab::VarSymb>(name);
-	auto var_symb = new_symb.get();
-	auto mem_alloc = make_unique<koopa::MemoryDec>(make_shared<koopa::IntType>());
-	auto mem_def = make_unique<koopa::MemoryDef>(name, move(mem_alloc));
-	auto mem_stmt = make_unique<koopa::SymbolDefStmt>(move(mem_def));
-	stmts.push_back(move(mem_stmt));
+	AllocSymb(name, stmts);
 	if(ast->init_val) {
-		auto val = GetExp(ast->init_val->exp, stmts);
-		StoreSymb(var_symb, move(val), stmts);
+		auto val = GetExp(ast->init_val->exp, blocks, stmts);
+		StoreSymb(name, move(val), stmts);
 	}
 	symtab_stack.AddSymbol(ident, move(new_symb));
 }
@@ -347,7 +409,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 		} else {
 			auto var_decl = static_cast<sysy::VarDecl*>(decl.get());
 			for (const auto &def: var_decl->defs)
-				GetVarDef(def, stmts);
+				GetVarDef(def, blocks, stmts);
 		}
 	}
 }
