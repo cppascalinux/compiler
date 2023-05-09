@@ -60,6 +60,7 @@ class SymTabStack {
 			total++;
 		}
 		std::unique_ptr<SymTab> pop() {
+			total++;
 			auto ptr = std::move(symtabs.back());
 			symtabs.pop_back();
 			return ptr;
