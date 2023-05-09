@@ -15,3 +15,7 @@ std::unique_ptr<koopa::Value> GetExp(const std::unique_ptr<sysy::Exp> &ast,
 void GetBlock(const std::unique_ptr<sysy::Block> &ast,
 std::vector<std::unique_ptr<koopa::Block> > &blocks,
 std::vector<std::unique_ptr<koopa::Statement> > &stmts);
+
+void GetStmt(const std::unique_ptr<sysy::Stmt> &ast,
+std::vector<std::unique_ptr<koopa::Block> > &blocks,
+std::vector<std::unique_ptr<koopa::Statement> > &stmts);
