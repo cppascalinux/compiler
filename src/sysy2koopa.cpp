@@ -15,6 +15,7 @@ using namespace std;
 int temp_var_counter = 0;
 int block_counter = 0;
 string next_block_symbol;
+vector<string> while_begin_stack, while_end_stack;
 
 unique_ptr<koopa::Value> LoadSymb(string symb,
 vector<unique_ptr<koopa::Statement> > &stmts) {
@@ -283,6 +284,41 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 	} else if (ast->nonif_type == sysy::BLOCKSTMT) {
 		auto new_ast = static_cast<sysy::BlockStmt*>(ast.get());
 		GetBlock(new_ast->block, blocks, stmts);
+	} else if (ast->nonif_type == sysy::WHILESTMT) {
+		auto new_ast = static_cast<sysy::WhileStmt*>(ast.get());
+		string begin_symb = "%while_begin_" + to_string(block_counter++);
+		string body_symb = "%while_body_" + to_string(block_counter++);
+		string end_symb = "%while_end_" + to_string(block_counter++);
+
+		auto jmp = make_unique<koopa::Jump>(begin_symb);
+		auto jmp_end = make_unique<koopa::JumpEnd>(move(jmp));
+		blocks.push_back(MakeKoopaBlock(stmts, move(jmp_end)));
+
+		next_block_symbol = begin_symb;
+		auto exp = GetExp(new_ast->exp, blocks, stmts);
+		auto br = make_unique<koopa::Branch>(move(exp), body_symb, end_symb);
+		auto br_end = make_unique<koopa::BranchEnd>(move(br));
+		blocks.push_back(MakeKoopaBlock(stmts, move(br_end)));
+
+		next_block_symbol = body_symb;
+		while_begin_stack.push_back(begin_symb);
+		while_end_stack.push_back(end_symb);
+		GetStmt(new_ast->stmt, blocks, stmts);
+		while_begin_stack.pop_back();
+		while_end_stack.pop_back();
+		jmp = make_unique<koopa::Jump>(begin_symb);
+		jmp_end = make_unique<koopa::JumpEnd>(move(jmp));
+		blocks.push_back(MakeKoopaBlock(stmts, move(jmp_end)));
+
+		next_block_symbol = end_symb;
+	} else if (ast->nonif_type == sysy::BREAKSTMT) {
+		auto jmp = make_unique<koopa::Jump>(while_end_stack.back());
+		auto jmp_end = make_unique<koopa::JumpEnd>(move(jmp));
+		blocks.push_back(MakeKoopaBlock(stmts, move(jmp_end)));
+	} else if (ast->nonif_type == sysy::CONTINUESTMT) {
+		auto jmp = make_unique<koopa::Jump>(while_begin_stack.back());
+		auto jmp_end = make_unique<koopa::JumpEnd>(move(jmp));
+		blocks.push_back(MakeKoopaBlock(stmts, move(jmp_end)));
 	}
 }
 

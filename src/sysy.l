@@ -37,6 +37,9 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 
 "int"           { return INT; }
 "return"        { return RETURN; }
+"while"         { return WHILE; }
+"break"         { return BREAK; }
+"continue"      { return CONTINUE; }
 "if"            { return IF; }
 "else"          { return ELSE; }
 "+"|"-"         { yylval.str_val = new string(yytext); return ADDOP; }

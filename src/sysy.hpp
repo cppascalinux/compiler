@@ -494,11 +494,15 @@ class Stmt: public Base {
 //                 | [Exp] ";"
 //                 | Block
 //                 | "return" [Exp] ";";
+//                 | "while" "(" Exp ")" Stmt
 enum NonIfStmtType {
 	ASSIGNSTMT,
 	EXPSTMT,
 	BLOCKSTMT,
-	RETURNSTMT
+	RETURNSTMT,
+	WHILESTMT,
+	BREAKSTMT,
+	CONTINUESTMT
 };
 
 
@@ -650,6 +654,37 @@ class ReturnStmt: public NonIfStmt {
 			if (exp)
 				exp->Dump();
 			std::cout << " }";
+		}
+};
+
+class WhileStmt: public NonIfStmt {
+	public:
+		std::unique_ptr<Exp> exp;
+		std::unique_ptr<Stmt> stmt;
+		WhileStmt(Base *p, Base *q): NonIfStmt(WHILESTMT),
+			exp(static_cast<Exp*>(p)), stmt(static_cast<Stmt*>(q)) {}
+		virtual void Dump() const override {
+			std::cout << "Stmt { while ( ";
+			exp->Dump();
+			std::cout << " ) ";
+			stmt->Dump();
+			std::cout << " }";
+		}
+};
+
+class BreakStmt: public NonIfStmt {
+	public:
+		BreakStmt(): NonIfStmt(BREAKSTMT) {}
+		virtual void Dump() const override {
+			std::cout << "Stmt { break; }";
+		}
+};
+
+class ContinueStmt: public NonIfStmt {
+	public:
+		ContinueStmt(): NonIfStmt(CONTINUESTMT) {}
+		virtual void Dump() const override {
+			std::cout << "Stmt { continue; }";
 		}
 };
 
