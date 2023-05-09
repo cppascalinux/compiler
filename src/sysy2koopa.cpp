@@ -12,7 +12,8 @@
 
 using namespace std;
 
-int temp_var_counter=0;
+int temp_var_counter = 0;
+int block_counter = 0;
 
 unique_ptr<koopa::Value> LoadSymb(const symtab::VarSymb *var_symb,
 	vector<unique_ptr<koopa::Statement> > &stmts) {
@@ -250,7 +251,7 @@ unique_ptr<koopa::FunBody> GetBlock(const unique_ptr<sysy::Block> &ast) {
 	for (const auto &item: ast->items) {
 		auto end_stmt = GetBlockItem(item, *stmts);
 		if (end_stmt) {
-			auto block = make_unique<koopa::Block>("%entry", move(*stmts), move(end_stmt));
+			auto block = make_unique<koopa::Block>("%entry" + to_string(block_counter ++), move(*stmts), move(end_stmt));
 			blocks.push_back(move(block));
 			stmts = make_unique<vector<unique_ptr<koopa::Statement> > >();
 		}
