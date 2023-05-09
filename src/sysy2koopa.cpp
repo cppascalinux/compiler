@@ -16,7 +16,7 @@ int temp_var_counter = 0;
 int block_counter = 0;
 
 unique_ptr<koopa::Value> LoadSymb(const symtab::VarSymb *var_symb,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	auto load = make_unique<koopa::Load>(var_symb->name);
 	auto load_def = make_unique<koopa::LoadDef>(
 		"%" + to_string(temp_var_counter++), move(load));
@@ -33,7 +33,7 @@ void StoreSymb(const symtab::VarSymb *var_symb,
 }
 
 unique_ptr<koopa::Value> GetPrimExp(const unique_ptr<sysy::PrimaryExp> &ast,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->exp_type == sysy::BRACKETEXP) {
 		auto new_ast = static_cast<sysy::BracketExp*>(ast.get());
 		return GetExp(new_ast->exp, stmts);
@@ -42,7 +42,7 @@ unique_ptr<koopa::Value> GetPrimExp(const unique_ptr<sysy::PrimaryExp> &ast,
 		return make_unique<koopa::IntValue>(new_ast->num->int_const);
 	} else {
 		auto new_ast = static_cast<sysy::LValExp*>(ast.get());
-		auto symb = symbol_table.GetSymbol(new_ast->lval->ident);
+		auto symb = symtab_stack.GetSymbol(new_ast->lval->ident);
 		if (symb->symb_type == symtab::CONSTSYMB) {
 			auto const_symb = static_cast<symtab::ConstSymb*>(symb);
 			return make_unique<koopa::IntValue>(const_symb->val);
@@ -55,7 +55,7 @@ unique_ptr<koopa::Value> GetPrimExp(const unique_ptr<sysy::PrimaryExp> &ast,
 }
 
 unique_ptr<koopa::Value> AddBinExp(unique_ptr<koopa::BinaryExpr> bin_exp,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	auto new_symb_def = make_unique<koopa::BinExprDef>(
 		"%" + to_string(temp_var_counter++), move(bin_exp));
 	auto new_stmt = make_unique<koopa::SymbolDefStmt>(move(new_symb_def));
@@ -64,7 +64,7 @@ unique_ptr<koopa::Value> AddBinExp(unique_ptr<koopa::BinaryExpr> bin_exp,
 }
 
 unique_ptr<koopa::Value> GetUnaryExp(const unique_ptr<sysy::UnaryExp> &ast,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->exp_type == sysy::PRIMUNARYEXP) {
 		auto new_ast = static_cast<sysy::PrimUnaryExp*>(ast.get());
 		return GetPrimExp(new_ast->prim_exp, stmts);
@@ -87,7 +87,7 @@ unique_ptr<koopa::Value> GetUnaryExp(const unique_ptr<sysy::UnaryExp> &ast,
 }
 
 unique_ptr<koopa::Value> GetMulExp(const unique_ptr<sysy::MulExp> &ast,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->mul_exp) {
 		map<string, string> mul2inst({{"*", "mul"}, {"/", "div"}, {"%", "mod"}});
 		string inst = mul2inst[ast->op];
@@ -100,7 +100,7 @@ unique_ptr<koopa::Value> GetMulExp(const unique_ptr<sysy::MulExp> &ast,
 }
 
 unique_ptr<koopa::Value> GetAddExp(const unique_ptr<sysy::AddExp> &ast, 
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->add_exp) {
 		map<string, string> add2inst({{"+", "add"}, {"-", "sub"}});
 		string inst = add2inst[ast->op];
@@ -113,7 +113,7 @@ unique_ptr<koopa::Value> GetAddExp(const unique_ptr<sysy::AddExp> &ast,
 }
 
 unique_ptr<koopa::Value> GetRelExp(const unique_ptr<sysy::RelExp> &ast,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->rel_exp) {
 		map<string, string> rel2inst({{"<", "lt"}, {">", "gt"}, {"<=", "le"}, {">=", "ge"}});
 		string inst = rel2inst[ast->op];
@@ -126,7 +126,7 @@ unique_ptr<koopa::Value> GetRelExp(const unique_ptr<sysy::RelExp> &ast,
 }
 
 unique_ptr<koopa::Value> GetEqExp(const unique_ptr<sysy::EqExp> &ast,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->eq_exp) {
 		map<string, string> rel2inst({{"==", "eq"}, {"!=", "ne"}});
 		string inst = rel2inst[ast->op];
@@ -139,7 +139,7 @@ unique_ptr<koopa::Value> GetEqExp(const unique_ptr<sysy::EqExp> &ast,
 }
 
 unique_ptr<koopa::Value> GetLAndExp(const unique_ptr<sysy::LAndExp> &ast,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->land_exp) {
 		auto l_exp = GetLAndExp(ast->land_exp, stmts);
 		auto r_exp = GetEqExp(ast->eq_exp, stmts);
@@ -157,7 +157,7 @@ unique_ptr<koopa::Value> GetLAndExp(const unique_ptr<sysy::LAndExp> &ast,
 }
 
 unique_ptr<koopa::Value> GetLOrExp(const unique_ptr<sysy::LOrExp> &ast,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->lor_exp) {
 		auto l_exp = GetLOrExp(ast->lor_exp, stmts);
 		auto r_exp = GetLAndExp(ast->land_exp, stmts);
@@ -176,23 +176,31 @@ unique_ptr<koopa::Value> GetLOrExp(const unique_ptr<sysy::LOrExp> &ast,
 
 unique_ptr<koopa::Value> GetExp(const unique_ptr<sysy::Exp> &ast,
 			vector<unique_ptr<koopa::Statement> > &stmts) {
+	if (!ast)
+		return nullptr;
 	return GetLOrExp(ast->exp, stmts);
 }
 
 unique_ptr<koopa::EndStatement> GetStmt(const unique_ptr<sysy::Stmt> &ast,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->stmt_type == sysy::RETURNSTMT) {
 		auto new_ast = static_cast<sysy::ReturnStmt*>(ast.get());
 		auto ret = make_unique<koopa::Return>(GetExp(new_ast->exp, stmts));
 		return make_unique<koopa::ReturnEnd>(move(ret));
-	} else {
+	} else if (ast->stmt_type == sysy::ASSIGNSTMT) {
 		auto new_ast = static_cast<sysy::AssignStmt*>(ast.get());
-		auto symb = symbol_table.GetSymbol(new_ast->lval->ident);
+		auto symb = symtab_stack.GetSymbol(new_ast->lval->ident);
 		assert(symb->symb_type == symtab::VARSYMB);
 		auto var_symb = static_cast<symtab::VarSymb*>(symb);
 		auto rval = GetExp(new_ast->exp, stmts);
 		StoreSymb(var_symb, move(rval), stmts);
-		return nullptr;
+	} else if (ast->stmt_type == sysy::EXPSTMT) {
+		auto new_ast = static_cast<sysy::ExpStmt*>(ast.get());
+		GetExp(new_ast->exp, stmts);
+	} else if (ast->stmt_type == sysy::BLOCKSTMT) {
+		auto new_ast = static_cast<sysy::BlockStmt*>(ast.get());
+		GetBlock(new_ast->block, blocks, stmts);
 	}
 	return nullptr;
 }
@@ -202,16 +210,16 @@ void GetConstDef(const unique_ptr<sysy::ConstDef> &ast) {
 	const auto &exp = ast->val->const_exp->exp;
 	int val = exp->Eval();
 	auto new_symb = make_unique<symtab::ConstSymb>(val);
-	symbol_table.AddSymbol(ident, move(new_symb));
+	symtab_stack.AddSymbol(ident, move(new_symb));
 }
 
 void GetVarDef(const unique_ptr<sysy::VarDef> &ast,
 	vector<unique_ptr<koopa::Statement> > &stmts) {
 	string ident = ast->ident;
-	string name = "@" + ident;
+	string name = "@" + ident + "_" + to_string(symtab_stack.GetTotal());
 	auto new_symb = make_unique<symtab::VarSymb>(name);
 	auto var_symb = new_symb.get();
-	symbol_table.AddSymbol(ident, move(new_symb));
+	symtab_stack.AddSymbol(ident, move(new_symb));
 	auto mem_alloc = make_unique<koopa::MemoryDec>(make_shared<koopa::IntType>());
 	auto mem_def = make_unique<koopa::MemoryDef>(name, move(mem_alloc));
 	auto mem_stmt = make_unique<koopa::SymbolDefStmt>(move(mem_def));
@@ -223,10 +231,11 @@ void GetVarDef(const unique_ptr<sysy::VarDef> &ast,
 }
 
 unique_ptr<koopa::EndStatement> GetBlockItem(const unique_ptr<sysy::BlockItem> &ast,
-	vector<unique_ptr<koopa::Statement> > &stmts) {
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->item_type == sysy::STMTBLOCKITEM) {
 		auto new_ast = static_cast<sysy::StmtBlockItem*>(ast.get());
-		auto ret = GetStmt(new_ast->stmt, stmts);
+		auto ret = GetStmt(new_ast->stmt, blocks, stmts);
 		return ret;
 	} else {
 		auto new_ast = static_cast<sysy::DeclBlockItem*>(ast.get());
@@ -245,17 +254,31 @@ unique_ptr<koopa::EndStatement> GetBlockItem(const unique_ptr<sysy::BlockItem> &
 	return nullptr;
 }
 
-unique_ptr<koopa::FunBody> GetBlock(const unique_ptr<sysy::Block> &ast) {
-	vector<unique_ptr<koopa::Block> > blocks;
-	auto stmts = make_unique<vector<unique_ptr<koopa::Statement> > >();
+void GetBlock(const unique_ptr<sysy::Block> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
+	symtab_stack.push();
 	for (const auto &item: ast->items) {
-		auto end_stmt = GetBlockItem(item, *stmts);
+		auto end_stmt = GetBlockItem(item, blocks, stmts);
 		if (end_stmt) {
-			auto block = make_unique<koopa::Block>("%entry" + to_string(block_counter ++),
-				move(*stmts), move(end_stmt));
+			auto block = make_unique<koopa::Block>("%entry" + to_string(block_counter++),
+				move(stmts), move(end_stmt));
 			blocks.push_back(move(block));
-			stmts = make_unique<vector<unique_ptr<koopa::Statement> > >();
 		}
+	}
+	symtab_stack.pop();
+}
+
+unique_ptr<koopa::FunBody> GetFunBody(const unique_ptr<sysy::Block> &ast) {
+	vector<unique_ptr<koopa::Block> > blocks;
+	vector<unique_ptr<koopa::Statement> > stmts;
+	GetBlock(ast, blocks, stmts);
+	if (!stmts.empty()) {
+		auto ret = make_unique<koopa::Return>(nullptr);
+		auto ret_stmt = make_unique<koopa::ReturnEnd>(move(ret));
+		auto block = make_unique<koopa::Block>("%entry" + to_string(block_counter++),
+			move(stmts), move(ret_stmt));
+		blocks.push_back(move(block));
 	}
 	return make_unique<koopa::FunBody>(move(blocks));
 }
@@ -267,7 +290,7 @@ unique_ptr<koopa::Type> GetFuncType(const unique_ptr<sysy::FuncType> &ast) {
 unique_ptr<koopa::FunDef> GetFuncDef(const unique_ptr<sysy::FuncDef> &ast) {
 	auto fun_type = GetFuncType(ast->func_type);
 	string s("@" + ast->ident);
-	auto fun_body = GetBlock(ast->block);
+	auto fun_body = GetFunBody(ast->block);
 	return make_unique<koopa::FunDef>(s, nullptr, move(fun_type), move(fun_body));
 }
 

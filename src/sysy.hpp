@@ -76,7 +76,7 @@ class LValExp: public PrimaryExp {
 			std::cout << " }";
 		}
 		virtual int Eval() const override {
-			auto symb = symbol_table.GetSymbol(lval->ident);
+			auto symb = symtab_stack.GetSymbol(lval->ident);
 			assert(symb && symb->symb_type == symtab::CONSTSYMB);
 			auto new_symb = static_cast<symtab::ConstSymb*>(symb);
 			return new_symb->val;
@@ -484,6 +484,8 @@ class VarDecl: public Decl {
 // Stmt        ::= "return" Exp ";";
 enum StmtType {
 	ASSIGNSTMT,
+	EXPSTMT,
+	BLOCKSTMT,
 	RETURNSTMT
 };
 
@@ -510,6 +512,19 @@ class AssignStmt: public Stmt {
 		}
 };
 
+class ExpStmt: public Stmt {
+	public:
+		std::unique_ptr<Exp> exp;
+		ExpStmt(Base *p): Stmt(EXPSTMT),
+			exp(static_cast<Exp*>(p)){}
+		virtual void Dump() const override {
+			std::cout << "Stmt { ";
+			if (exp)
+				exp->Dump();
+			std::cout << " ; }";
+		}
+};
+
 class ReturnStmt: public Stmt {
 	public:
 		std::unique_ptr<Exp> exp;
@@ -517,7 +532,8 @@ class ReturnStmt: public Stmt {
 			exp(static_cast<Exp*>(p)){}
 		virtual void Dump() const override {
 			std::cout << "Stmt { return ";
-			exp->Dump();
+			if (exp)
+				exp->Dump();
 			std::cout << " }";
 		}
 };
@@ -578,7 +594,17 @@ class Block: public Base {
 		}
 };
 
-
+class BlockStmt: public Stmt {
+	public:
+		std::unique_ptr<Block> block;
+		BlockStmt(Base *p): Stmt(BLOCKSTMT),
+			block(static_cast<Block*>(p)){}
+		virtual void Dump() const override {
+			std::cout << "Stmt { ";
+			block->Dump();
+			std::cout << " }";
+		}
+};
 
 // FuncType  ::= "int";
 class FuncType: public Base {

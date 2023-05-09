@@ -1,3 +1,3 @@
 #include "symtab.hpp"
 
-symtab::SymTab symbol_table;
+symtab::SymTabStack symtab_stack;

@@ -95,6 +95,22 @@ Stmt
 		auto ast = new ReturnStmt($2);
 		$$ = ast;
 	}
+	| RETURN ';' {
+		auto ast = new ReturnStmt(nullptr);
+		$$ = ast;
+	}
+	| Exp ';' {
+		auto ast = new ExpStmt($1);
+		$$ = ast;
+	}
+	| ';' {
+		auto ast = new ExpStmt(nullptr);
+		$$ = ast;
+	}
+	| Block {
+		auto ast = new BlockStmt($1);
+		$$ = ast;
+	}
 	| LVal '=' Exp ';' {
 		auto ast = new AssignStmt($1, $3);
 		$$ = ast;
