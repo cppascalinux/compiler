@@ -219,7 +219,6 @@ void GetVarDef(const unique_ptr<sysy::VarDef> &ast,
 	string name = "@" + ident + "_" + to_string(symtab_stack.GetTotal());
 	auto new_symb = make_unique<symtab::VarSymb>(name);
 	auto var_symb = new_symb.get();
-	symtab_stack.AddSymbol(ident, move(new_symb));
 	auto mem_alloc = make_unique<koopa::MemoryDec>(make_shared<koopa::IntType>());
 	auto mem_def = make_unique<koopa::MemoryDef>(name, move(mem_alloc));
 	auto mem_stmt = make_unique<koopa::SymbolDefStmt>(move(mem_def));
@@ -228,6 +227,7 @@ void GetVarDef(const unique_ptr<sysy::VarDef> &ast,
 		auto val = GetExp(ast->init_val->exp, stmts);
 		StoreSymb(var_symb, move(val), stmts);
 	}
+	symtab_stack.AddSymbol(ident, move(new_symb));
 }
 
 unique_ptr<koopa::EndStatement> GetBlockItem(const unique_ptr<sysy::BlockItem> &ast,
@@ -273,13 +273,13 @@ unique_ptr<koopa::FunBody> GetFunBody(const unique_ptr<sysy::Block> &ast) {
 	vector<unique_ptr<koopa::Block> > blocks;
 	vector<unique_ptr<koopa::Statement> > stmts;
 	GetBlock(ast, blocks, stmts);
-	// if (!stmts.empty()) {
-	// 	auto ret = make_unique<koopa::Return>(make_unique<koopa::IntValue>(0));
-	// 	auto ret_stmt = make_unique<koopa::ReturnEnd>(move(ret));
-	// 	auto block = make_unique<koopa::Block>("%entry" + to_string(block_counter++),
-	// 		move(stmts), move(ret_stmt));
-	// 	blocks.push_back(move(block));
-	// }
+	if (!stmts.empty()) {
+		auto ret = make_unique<koopa::Return>(make_unique<koopa::IntValue>(0));
+		auto ret_stmt = make_unique<koopa::ReturnEnd>(move(ret));
+		auto block = make_unique<koopa::Block>("%entry" + to_string(block_counter++),
+			move(stmts), move(ret_stmt));
+		blocks.push_back(move(block));
+	}
 	return make_unique<koopa::FunBody>(move(blocks));
 }
 
