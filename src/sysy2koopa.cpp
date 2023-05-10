@@ -37,7 +37,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 
 void AllocSymb(string symb,
 vector<unique_ptr<koopa::Statement> > &stmts) {
-	auto mem_alloc = make_unique<koopa::MemoryDec>(make_shared<koopa::IntType>());
+	auto mem_alloc = make_unique<koopa::MemoryDec>(make_unique<koopa::IntType>());
 	auto mem_def = make_unique<koopa::MemoryDef>(symb, move(mem_alloc));
 	auto mem_stmt = make_unique<koopa::SymbolDefStmt>(move(mem_def));
 	stmts.push_back(move(mem_stmt));
@@ -501,12 +501,12 @@ unique_ptr<koopa::FunDef> GetFuncDef(const unique_ptr<sysy::FuncDef> &ast) {
 	vector<unique_ptr<koopa::Block> > blocks;
 	vector<unique_ptr<koopa::Statement> > stmts;
 	string symbol = "@" + ast->ident;
-	shared_ptr<koopa::Type> ret_type = ast->func_type == "int" ?
-		make_shared<koopa::IntType>() : nullptr;
-	vector<pair<string, shared_ptr<koopa::Type> > > fun_params;
+	unique_ptr<koopa::Type> ret_type = ast->func_type == "int" ?
+		make_unique<koopa::IntType>() : nullptr;
+	vector<pair<string, unique_ptr<koopa::Type> > > fun_params;
 	for (const auto &ptr: ast->params) {
 		string ident_name = ptr->ident + "_" + to_string(symtab_stack.GetTotal());
-		fun_params.emplace_back("@" + ident_name, make_shared<koopa::IntType>());
+		fun_params.emplace_back("@" + ident_name, make_unique<koopa::IntType>());
 		AllocSymb("%" + ident_name, stmts);
 		StoreSymb("%" + ident_name,
 			make_unique<koopa::SymbolValue>("@" + ident_name), stmts);
@@ -517,7 +517,7 @@ unique_ptr<koopa::FunDef> GetFuncDef(const unique_ptr<sysy::FuncDef> &ast) {
 	cur_func_type = ast->func_type;
 	auto fun_body = GetFunBody(ast->block, blocks, stmts);
 	symtab_stack.pop();
-	return make_unique<koopa::FunDef>(symbol, move(koopa_params), ret_type, move(fun_body));
+	return make_unique<koopa::FunDef>(symbol, move(koopa_params), move(ret_type), move(fun_body));
 }
 
 void GetGlobalVarDef(const unique_ptr<sysy::VarDef> &ast,
@@ -529,7 +529,7 @@ vector<unique_ptr<koopa::GlobalSymbolDef> > &global_symbs) {
 		val = 0;
 	auto val_init = make_unique<koopa::IntInit>(move(val));
 	auto mem_dec = make_unique<koopa::GlobalMemDec>(
-		make_shared<koopa::IntType>(), move(val_init));
+		make_unique<koopa::IntType>(), move(val_init));
 	string name = "@" + ast->ident + "_" + to_string(symtab_stack.GetTotal());
 	symtab_stack.AddSymbol(ast->ident, make_unique<symtab::VarSymb>(name));
 	global_symbs.push_back(make_unique<koopa::GlobalSymbolDef>(name, move(mem_dec)));

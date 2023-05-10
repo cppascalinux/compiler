@@ -130,8 +130,8 @@ class BinaryExpr {
 // MemoryDeclaration ::= "alloc" Type;
 class MemoryDec {
 	public:
-		std::shared_ptr<Type> mem_type;
-		MemoryDec(std::shared_ptr<Type> a): mem_type(a) {}
+		std::unique_ptr<Type> mem_type;
+		MemoryDec(std::unique_ptr<Type> a): mem_type(std::move(a)) {}
 		std::string Str() const {
 			return "alloc " + mem_type->Str();
 		}
@@ -141,10 +141,10 @@ class MemoryDec {
 // GlobalMemoryDeclaration ::= "alloc" Type "," Initializer;
 class GlobalMemDec {
 	public:
-		std::shared_ptr<Type> mem_type;
+		std::unique_ptr<Type> mem_type;
 		std::unique_ptr<Initializer> mem_init;
-		GlobalMemDec(std::shared_ptr<Type> a, std::unique_ptr<Initializer> b):
-			mem_type(a), mem_init(std::move(b)) {}
+		GlobalMemDec(std::unique_ptr<Type> a, std::unique_ptr<Initializer> b):
+			mem_type(std::move(a)), mem_init(std::move(b)) {}
 		std::string Str() const {
 			return "alloc " + mem_type->Str() + ", " + mem_init->Str();
 		}
@@ -492,8 +492,8 @@ class FunBody {
 // FunParams ::= SYMBOL ":" Type {"," SYMBOL ":" Type};
 class FunParams {
 	public:
-		std::vector<std::pair<std::string, std::shared_ptr<Type> > > params;
-		FunParams(std::vector<std::pair<std::string, std::shared_ptr<Type> > > v):
+		std::vector<std::pair<std::string, std::unique_ptr<Type> > > params;
+		FunParams(std::vector<std::pair<std::string, std::unique_ptr<Type> > > v):
 			params(std::move(v)) {}
 		std::string Str() const {
 			if (params.empty())
@@ -512,11 +512,11 @@ class FunDef {
 	public:
 		std::string symbol;
 		std::unique_ptr<FunParams> params;
-		std::shared_ptr<Type> ret_type;
+		std::unique_ptr<Type> ret_type;
 		std::unique_ptr<FunBody> body;
 		FunDef(std::string s, std::unique_ptr<FunParams> a,
-			std::shared_ptr<Type> b, std::unique_ptr<FunBody> c):
-			symbol(s), params(std::move(a)), ret_type(b), body(std::move(c)) {}
+			std::unique_ptr<Type> b, std::unique_ptr<FunBody> c):
+			symbol(s), params(std::move(a)), ret_type(std::move(b)), body(std::move(c)) {}
 		std::string Str() const {
 			std::string s("fun " + symbol + "(");
 			s += params->Str();

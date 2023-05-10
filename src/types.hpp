@@ -20,14 +20,14 @@ enum TypeNum {
 class Type {
 	public:
 		TypeNum my_type;
-		Type(TypeNum type): my_type(type){}
+		Type(TypeNum type): my_type(type) {}
 		virtual ~Type() = default;
 		virtual std::string Str() const = 0;
 };
 
 class IntType: public Type {
 	public:
-		IntType(): Type(INTTYPE){};
+		IntType(): Type(INTTYPE) {};
 		std::string Str() const override {
 			return "i32";
 		}
@@ -36,10 +36,10 @@ class IntType: public Type {
 // ArrayType ::= "[" Type "," INT "]";
 class ArrayType: public Type {
 	public:
-		std::shared_ptr<Type> arr;
+		std::unique_ptr<Type> arr;
 		int len;
-		ArrayType(std::shared_ptr<Type> type, int length):
-			Type(ARRAYTYPE), arr(type), len(length){}
+		ArrayType(std::unique_ptr<Type> type, int length):
+			Type(ARRAYTYPE), arr(std::move(type)), len(length) {}
 		std::string Str() const override {
 			return "[" + arr->Str() + ", " + std::to_string(len) + "]";
 		}
@@ -49,7 +49,8 @@ class ArrayType: public Type {
 class PointerType: public Type {
 	public:
 		std::shared_ptr<Type> ptr;
-		PointerType(std::shared_ptr<Type> type): Type(POINTERTYPE), ptr(type){}
+		PointerType(std::unique_ptr<Type> type):
+			Type(POINTERTYPE), ptr(std::move(type)) {}
 		std::string Str() const override {
 			return "*" + ptr->Str();
 		}
@@ -58,10 +59,10 @@ class PointerType: public Type {
 // FunType ::= "(" [Type {"," Type}] ")" [":" Type];
 class FunType: public Type {
 	public:
-		std::vector<std::shared_ptr<Type> > params;
+		std::vector<std::unique_ptr<Type> > params;
 		std::shared_ptr<Type> ret;
-		FunType(std::vector<std::shared_ptr<Type> > p, std::shared_ptr<Type> q):
-			Type(FUNTYPE), params(p), ret(q){}
+		FunType(std::vector<std::unique_ptr<Type> > p, std::unique_ptr<Type> q):
+			Type(FUNTYPE), params(std::move(p)), ret(std::move(q)){}
 		std::string Str() const override {
 			std::string s("(");
 			if (!params.empty()) {
