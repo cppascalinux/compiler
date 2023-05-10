@@ -9,6 +9,17 @@
 
 using namespace std;
 
+string lib_funcs = 
+"\
+decl @getint(): i32\n\
+decl @getch(): i32\n\
+decl @getarray(*i32): i32\n\
+decl @putint(i32)\n\
+decl @putch(i32)\n\
+decl @putarray(i32, *i32)\n\
+decl @starttime()\n\
+decl @stoptime()\n\n\
+";
 
 // 声明 lexer 的输入, 以及 parser 函数
 // 为什么不引用 sysy.tab.hpp 呢? 因为首先里面没有 yyin 的定义
@@ -39,10 +50,11 @@ int main(int argc, const char *argv[]) {
 	// cout << *ast << endl;
 	ast->Dump();
 	cout << endl;
-	// auto koopa = GetProgram(move(ast));
-	// string code_koopa = koopa->Str();
-	// ofstream outfile;
-	// outfile.open(output, ios::out | ios::trunc);
-	// outfile << code_koopa;
+	auto koopa = GetCompUnit(move(ast));
+	string code_koopa = koopa->Str();
+	code_koopa = lib_funcs + code_koopa;
+	ofstream outfile;
+	outfile.open(output, ios::out | ios::trunc);
+	outfile << code_koopa;
 	return 0;
 }

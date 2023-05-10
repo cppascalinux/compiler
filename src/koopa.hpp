@@ -230,7 +230,7 @@ class FunCall {
 		FunCall(std::string s, std::vector<std::unique_ptr<Value> > v):
 			symbol(s), params(std::move(v)) {}
 		std::string Str() const {
-			std::string s("call" + symbol + "(");
+			std::string s("call " + symbol + "(");
 			if (!params.empty()) {
 				for (const auto &p: params)
 					s += p->Str() + ", ";
@@ -496,10 +496,12 @@ class FunParams {
 		FunParams(std::vector<std::pair<std::string, std::shared_ptr<Type> > > v):
 			params(std::move(v)) {}
 		std::string Str() const {
+			if (params.empty())
+				return "";
 			std::string s;
 			for (const auto &pr: params)
 				s += pr.first + ": " + pr.second->Str() + ", ";
-			s.erase(s.end()-2, s.end());
+			s.erase(s.end() - 2, s.end());
 			return s;
 		}
 };
@@ -517,8 +519,7 @@ class FunDef {
 			symbol(s), params(std::move(a)), ret_type(b), body(std::move(c)) {}
 		std::string Str() const {
 			std::string s("fun " + symbol + "(");
-			if (params)
-				s += params->Str();
+			s += params->Str();
 			s += ")";
 			if (ret_type)
 				s += ": " + ret_type->Str();
@@ -539,8 +540,9 @@ class Program {
 			std::string s;
 			for (const auto &ptr: global_vars)
 				s += ptr->Str() + "\n";
+			s += "\n";
 			for (const auto &ptr: funcs)
-				s += ptr->Str();
+				s += ptr->Str() + "\n";
 			return s;
 		}
 };

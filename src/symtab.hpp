@@ -12,7 +12,8 @@ namespace symtab{
 
 enum SymbolType {
 	CONSTSYMB,
-	VARSYMB
+	VARSYMB,
+	FUNCSYMB
 };
 
 class Symbol {
@@ -32,6 +33,12 @@ class VarSymb: public Symbol {
 	public:
 		std::string name;
 		VarSymb(std::string s): Symbol(VARSYMB), name(s) {}
+};
+
+class FuncSymb: public Symbol {
+	public:
+		std::string ret_type;
+		FuncSymb(std::string s): Symbol(FUNCSYMB), ret_type(s) {}
 };
 
 class SymTab {
@@ -54,7 +61,18 @@ class SymTabStack {
 	public:
 		std::vector<std::unique_ptr<SymTab> > symtabs;
 		int total;
-		SymTabStack(): symtabs(), total(0) {push(); total=0;}
+		SymTabStack(): symtabs(), total(0) {
+			push();
+			const auto &ptr = symtabs.back();
+			ptr->AddSymbol("getint", std::make_unique<FuncSymb>("int"));
+			ptr->AddSymbol("getch", std::make_unique<FuncSymb>("int"));
+			ptr->AddSymbol("getarray", std::make_unique<FuncSymb>("int"));
+			ptr->AddSymbol("putint", std::make_unique<FuncSymb>("void"));
+			ptr->AddSymbol("putch", std::make_unique<FuncSymb>("void"));
+			ptr->AddSymbol("putarray", std::make_unique<FuncSymb>("void"));
+			ptr->AddSymbol("starttime", std::make_unique<FuncSymb>("void"));
+			ptr->AddSymbol("stoptime", std::make_unique<FuncSymb>("void"));
+		}
 		void push() {
 			symtabs.push_back(std::make_unique<SymTab>());
 			total++;

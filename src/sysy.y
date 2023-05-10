@@ -44,8 +44,8 @@ void yyerror(std::unique_ptr<CompUnit> &ast, const char *s);
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <void_val> BlockItemList ConstDefList VarDefList CompList FuncFParams FuncRParams
-%type <ast_val> FuncDef Block Stmt Exp PrimaryExp UnaryExp AddExp MulExp RelExp EqExp LAndExp LOrExp Decl ConstDecl ConstDef ConstInitVal BlockItem LVal ConstExp InitVal VarDef VarDecl ClosedIf OpenIf NonIfStmt CompItem
+%type <void_val> BlockItemList ConstDefList VarDefList CompList FuncFParamList FuncRParamList
+%type <ast_val> FuncDef Block Stmt Exp PrimaryExp UnaryExp AddExp MulExp RelExp EqExp LAndExp LOrExp Decl ConstDecl ConstDef ConstInitVal BlockItem LVal InitVal VarDef VarDecl ClosedIf OpenIf NonIfStmt CompItem FuncFParam
 
 
 %%
@@ -94,22 +94,28 @@ CompList
 // 虽然此处你看不出用 unique_ptr 和手动 delete 的区别, 但当我们定义了  之后
 // 这种写法会省下很多内存管理的负担
 
-FuncFParams
+FuncFParam
+	: INT IDENT {
+		auto ast = new FuncFParam(*unique_ptr<string>($2));
+		$$ = ast;
+	};
+
+FuncFParamList
 	: {
-		$$ = new vector<string>();
+		$$ = new vector<unique_ptr<FuncFParam> >();
 	}
-	| INT IDENT {
-		auto list = new vector<string>();
-		list->push_back(*unique_ptr<string>($2));
+	| FuncFParam {
+		auto list = new vector<unique_ptr<FuncFParam> >();
+		list->emplace_back(static_cast<FuncFParam*>($1));
 		$$ = static_cast<void*>(list);
 	}
-	| FuncFParams ',' INT IDENT {
-		auto list = static_cast<vector<string>*>($1);
-		list->push_back(*unique_ptr<string>($4));
+	| FuncFParamList ',' FuncFParam {
+		auto list = static_cast<vector<unique_ptr<FuncFParam> >*>($1);
+		list->emplace_back(static_cast<FuncFParam*>($3));
 		$$ = static_cast<void*>(list);
 	};
 
-FuncRParams
+FuncRParamList
 	: {
 		$$ = new vector<unique_ptr<Exp> >();
 	}
@@ -118,18 +124,18 @@ FuncRParams
 		list->emplace_back(static_cast<Exp*>($1));
 		$$ = static_cast<void*>(list);
 	}
-	| FuncRParams ',' Exp {
+	| FuncRParamList ',' Exp {
 		auto list = static_cast<vector<unique_ptr<Exp> >*>($1);
 		list->emplace_back(static_cast<Exp*>($3));
 		$$ = static_cast<void*>(list);
 	};
 
 FuncDef
-	: INT IDENT '(' FuncFParams ')' Block {
+	: INT IDENT '(' FuncFParamList ')' Block {
 		auto ast = new FuncDef("int", *unique_ptr<string>($2), $4, $6);
 		$$ = ast;
 	}
-	| VOID IDENT '(' FuncFParams ')' Block {
+	| VOID IDENT '(' FuncFParamList ')' Block {
 		auto ast = new FuncDef("void", *unique_ptr<string>($2), $4, $6);
 		$$ = ast;
 	};
@@ -241,7 +247,7 @@ UnaryExp
 		auto ast = new OpUnaryExp("!", $2);
 		$$ = ast;
 	}
-	| IDENT '(' FuncRParams ')' {
+	| IDENT '(' FuncRParamList ')' {
 		auto ast = new FuncUnaryExp(*unique_ptr<string>($1), $3);
 		$$ = ast;
 	};
@@ -312,14 +318,8 @@ LVal
 		$$ = ast;
 	};
 
-ConstExp
-	: Exp {
-		auto ast = new ConstExp($1);
-		$$ = ast;
-	};
-
 ConstInitVal
-	: ConstExp {
+	: Exp {
 		auto ast = new ConstInitVal($1);
 		$$ = ast;
 	};

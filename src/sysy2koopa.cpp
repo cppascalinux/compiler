@@ -16,6 +16,7 @@ int temp_var_counter = 0;
 int block_counter = 0;
 string next_block_symbol;
 vector<string> while_begin_stack, while_end_stack;
+string cur_func_type;
 
 unique_ptr<koopa::Value> LoadSymb(string symb,
 vector<unique_ptr<koopa::Statement> > &stmts) {
@@ -97,7 +98,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (ast->exp_type == sysy::PRIMUNARYEXP) {
 		auto new_ast = static_cast<sysy::PrimUnaryExp*>(ast.get());
 		return GetPrimExp(new_ast->prim_exp, blocks, stmts);
-	} else {
+	} else if (ast->exp_type == sysy::OPUNARYEXP) {
 		auto new_ast = static_cast<sysy::OpUnaryExp*>(ast.get());
 		map<string, string> unary2inst({{"+", "add"}, {"-", "sub"}, {"!", "eq"}});
 		string inst = unary2inst[new_ast->op];
@@ -110,6 +111,27 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 			auto new_bin_exp = make_unique<koopa::BinaryExpr>(
 				inst, move(new_zero_val), move(ptr));
 			return AddBinExp(move(new_bin_exp), stmts);
+		}
+	} else if (ast->exp_type == sysy::FUNCUNARYEXP) {
+		auto new_ast = static_cast<sysy::FuncUnaryExp*>(ast.get());
+		vector<unique_ptr<koopa::Value> > vals;
+		for (auto &ptr: new_ast->params)
+			vals.push_back(GetExp(ptr, blocks, stmts));
+		auto fun_call = make_unique<koopa::FunCall>(
+			"@" + new_ast->ident, move(vals));
+		auto ptr = symtab_stack.GetSymbol(new_ast->ident);
+		assert(ptr->symb_type == symtab::FUNCSYMB);
+		auto new_ptr = static_cast<symtab::FuncSymb*>(ptr);
+		if (new_ptr->ret_type == "int") {
+			auto new_symb = make_unique<koopa::FunCallDef>(
+				"%" + to_string(temp_var_counter++), move(fun_call));
+			auto new_stmt = make_unique<koopa::SymbolDefStmt>(move(new_symb));
+			stmts.push_back(move(new_stmt));
+			return make_unique<koopa::SymbolValue>("%" + to_string(temp_var_counter-1));
+		} else {
+			auto fun_stmt = make_unique<koopa::FunCallStmt>(move(fun_call));
+			stmts.push_back(move(fun_stmt));
+			return nullptr;
 		}
 	}
 	return nullptr;
@@ -409,7 +431,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 
 void GetConstDef(const unique_ptr<sysy::ConstDef> &ast) {
 	string ident = ast->ident;
-	const auto &exp = ast->val->const_exp->exp;
+	const auto &exp = ast->val->exp;
 	int val = exp->Eval();
 	auto new_symb = make_unique<symtab::ConstSymb>(val);
 	symtab_stack.AddSymbol(ident, move(new_symb));
@@ -459,12 +481,14 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 	symtab_stack.pop();
 }
 
-unique_ptr<koopa::FunBody> GetFunBody(const unique_ptr<sysy::Block> &ast) {
-	vector<unique_ptr<koopa::Block> > blocks;
-	vector<unique_ptr<koopa::Statement> > stmts;
+unique_ptr<koopa::FunBody> GetFunBody(const unique_ptr<sysy::Block> &ast,
+vector<unique_ptr<koopa::Block> > &blocks,
+vector<unique_ptr<koopa::Statement> > &stmts) {
 	GetBlock(ast, blocks, stmts);
-	if (!stmts.empty()||!next_block_symbol.empty()) {
+	if (!stmts.empty() || !next_block_symbol.empty() || blocks.empty()) {
 		auto ret = make_unique<koopa::Return>(make_unique<koopa::IntValue>(0));
+		if (cur_func_type == "void")
+			ret = make_unique<koopa::Return>(nullptr);
 		auto ret_stmt = make_unique<koopa::ReturnEnd>(move(ret));
 		blocks.push_back(MakeKoopaBlock(stmts, move(ret_stmt)));
 	}
@@ -472,18 +496,72 @@ unique_ptr<koopa::FunBody> GetFunBody(const unique_ptr<sysy::Block> &ast) {
 }
 
 unique_ptr<koopa::FunDef> GetFuncDef(const unique_ptr<sysy::FuncDef> &ast) {
-	// auto fun_type = GetFuncType(ast->func_type);
-	// string s("@" + ast->ident);
-	// auto fun_body = GetFunBody(ast->block);
-	// return make_unique<koopa::FunDef>(s, nullptr, move(fun_type), move(fun_body));
-	return nullptr;
+	symtab_stack.AddSymbol(ast->ident, make_unique<symtab::FuncSymb>(ast->func_type));
+	symtab_stack.push();
+	vector<unique_ptr<koopa::Block> > blocks;
+	vector<unique_ptr<koopa::Statement> > stmts;
+	string symbol = "@" + ast->ident;
+	shared_ptr<koopa::Type> ret_type = ast->func_type == "int" ?
+		make_shared<koopa::IntType>() : nullptr;
+	vector<pair<string, shared_ptr<koopa::Type> > > fun_params;
+	for (const auto &ptr: ast->params) {
+		string ident_name = ptr->ident + "_" + to_string(symtab_stack.GetTotal());
+		fun_params.emplace_back("@" + ident_name, make_shared<koopa::IntType>());
+		AllocSymb("%" + ident_name, stmts);
+		StoreSymb("%" + ident_name,
+			make_unique<koopa::SymbolValue>("@" + ident_name), stmts);
+		auto new_symtab = make_unique<symtab::VarSymb>("%" + ident_name);
+		symtab_stack.AddSymbol(ptr->ident, move(new_symtab));
+	}
+	auto koopa_params = make_unique<koopa::FunParams>(move(fun_params));
+	cur_func_type = ast->func_type;
+	auto fun_body = GetFunBody(ast->block, blocks, stmts);
+	symtab_stack.pop();
+	return make_unique<koopa::FunDef>(symbol, move(koopa_params), ret_type, move(fun_body));
 }
 
-unique_ptr<koopa::Program> GetProgram(const unique_ptr<sysy::CompUnit> &ast) {
-	// vector<unique_ptr<koopa::FunDef> > v;
-	// v.push_back(GetFuncDef(ast->func_def));
-	// return make_unique<koopa::Program>(vector<unique_ptr<koopa::GlobalSymbolDef> >(), move(v));
-	return nullptr;
+void GetGlobalVarDef(const unique_ptr<sysy::VarDef> &ast,
+vector<unique_ptr<koopa::GlobalSymbolDef> > &global_symbs) {
+	int val;
+	if (ast->init_val)
+		val = ast->init_val->exp->Eval();
+	else
+		val = 0;
+	auto val_init = make_unique<koopa::IntInit>(move(val));
+	auto mem_dec = make_unique<koopa::GlobalMemDec>(
+		make_shared<koopa::IntType>(), move(val_init));
+	string name = "@" + ast->ident + "_" + to_string(symtab_stack.GetTotal());
+	symtab_stack.AddSymbol(ast->ident, make_unique<symtab::VarSymb>(name));
+	global_symbs.push_back(make_unique<koopa::GlobalSymbolDef>(name, move(mem_dec)));
+}
+
+void GetGlobalSymb(const unique_ptr<sysy::Decl> &ast,
+vector<unique_ptr<koopa::GlobalSymbolDef> > &global_symbs) {
+	if (ast->decl_type == sysy::CONSTDECL) {
+		auto new_ast = static_cast<sysy::ConstDecl*>(ast.get());
+		for (const auto &def: new_ast->defs)
+			GetConstDef(def);
+	} else {
+		auto new_ast = static_cast<sysy::VarDecl*>(ast.get());
+		for (const auto &def: new_ast->defs) {
+			GetGlobalVarDef(def, global_symbs);
+		}
+	}
+}
+
+unique_ptr<koopa::Program> GetCompUnit(const unique_ptr<sysy::CompUnit> &ast) {
+	vector<unique_ptr<koopa::FunDef> > funs;
+	vector<unique_ptr<koopa::GlobalSymbolDef> > global_symbs;
+	for (const auto &ptr: ast->items) {
+		if (ptr->item_type == sysy::FUNCDEFITEM) {
+			auto new_ptr = static_cast<sysy::FuncDefItem*>(ptr.get());
+			funs.push_back(GetFuncDef(new_ptr->func_def));
+		} else {
+			auto new_ptr = static_cast<sysy::DeclItem*>(ptr.get());
+			GetGlobalSymb(new_ptr->decl, global_symbs);
+		}
+	}
+	return make_unique<koopa::Program>(move(global_symbs), move(funs));
 }
 
 

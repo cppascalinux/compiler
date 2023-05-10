@@ -343,27 +343,14 @@ class Exp: public Base {
 };
 
 
-// ConstExp      ::= Exp;
-class ConstExp: public Base {
-	public:
-		std::unique_ptr<Exp> exp;
-		ConstExp(Base *p): exp(static_cast<Exp*>(p)) {}
-		virtual void Dump() const override {
-			std::cout << "ConstExp {";
-			exp->Dump();
-			std::cout << " }";
-		}
-};
-
-
-// ConstInitVal  ::= ConstExp;
+// ConstInitVal  ::= Exp;
 class ConstInitVal: public Base {
 	public:
-		std::unique_ptr<ConstExp> const_exp;
-		ConstInitVal(Base *p): const_exp(static_cast<ConstExp*>(p)) {}
+		std::unique_ptr<Exp> exp;
+		ConstInitVal(Base *p): exp(static_cast<Exp*>(p)) {}
 		virtual void Dump() const override {
 			std::cout << "ConstInitVal { ";
-			const_exp->Dump();
+			exp->Dump();
 			std::cout << " }";
 		}
 };
@@ -755,22 +742,34 @@ class BlockStmt: public NonIfStmt {
 };
 
 
+// FuncFParam  ::= INT IDENT;
+class FuncFParam: public Base {
+	public:
+		std::string ident;
+		FuncFParam(std::string s): ident(s) {}
+		virtual void Dump() const override {
+			std::cout << "FuncFParam { int " + ident + " }";
+		}
+};
+
+
 // FuncDef     ::= FuncType IDENT "(" [FuncFParams] ")" Block;
 class FuncDef: public Base {
 	public:
 		std::string func_type;
 		std::string ident;
-		std::vector<std::string> params;
+		std::vector<std::unique_ptr<FuncFParam> > params;
 		std::unique_ptr<Block> block;
 		FuncDef(std::string f, std::string s, void *l, Base *q):
 			func_type(f), ident(s),
-			params(move(*std::unique_ptr<std::vector<std::string> >(
-			static_cast<std::vector<std::string>*>(l)))),
+			params(move(*std::unique_ptr<std::vector<std::unique_ptr<FuncFParam> > >(
+			static_cast<std::vector<std::unique_ptr<FuncFParam> >*>(l)))),
 			block(static_cast<Block*>(q)) {}
 		virtual void Dump() const override {
 			std::cout << "FuncDef { " + func_type + " " + ident + " ( ";
-			for (auto param: params) {
-				std::cout << "int " + param + ", ";
+			for (const auto &param: params) {
+				param->Dump();
+				std::cout << ", ";
 			}
 			std::cout << " ) ";
 			block->Dump();
