@@ -1,4 +1,3 @@
-
 #include <memory>
 #include <string>
 #include <iostream>
@@ -15,4 +14,24 @@ void BracketExp::Dump() const {
 
 int BracketExp::Eval() const {
 	return exp->Eval();
+}
+
+
+FuncUnaryExp::FuncUnaryExp(std::string s, void *p):
+UnaryExp(FUNCUNARYEXP), ident(s),
+params(move(*std::unique_ptr<std::vector<std::unique_ptr<Exp> > >(
+static_cast<std::vector<std::unique_ptr<Exp> >*>(p)))) {}
+
+void FuncUnaryExp::Dump() const {
+	std::cout << "UnaryExp { " + ident + " ( ";
+	for (const auto &ptr: params) {
+		ptr->Dump();
+		std::cout << ", ";
+	}
+	std::cout << " ) }";
+}
+
+int FuncUnaryExp::Eval() const {
+	assert(0);
+	return 0;
 }

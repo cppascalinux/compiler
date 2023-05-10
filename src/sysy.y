@@ -39,13 +39,13 @@ void yyerror(std::unique_ptr<CompUnit> &ast, const char *s);
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN ANDOP OROP CONST IF ELSE WHILE BREAK CONTINUE
+%token INT RETURN ANDOP OROP CONST IF ELSE WHILE BREAK CONTINUE VOID
 %token <str_val> IDENT RELOP EQOP MULOP ADDOP
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <void_val> BlockItemList ConstDefList VarDefList
-%type <ast_val> FuncDef FuncType Block Stmt Number Exp PrimaryExp UnaryExp AddExp MulExp RelExp EqExp LAndExp LOrExp Decl ConstDecl ConstDef ConstInitVal BlockItem LVal ConstExp InitVal VarDef VarDecl ClosedIf OpenIf NonIfStmt
+%type <void_val> BlockItemList ConstDefList VarDefList CompList FuncFParams FuncRParams
+%type <ast_val> FuncDef Block Stmt Exp PrimaryExp UnaryExp AddExp MulExp RelExp EqExp LAndExp LOrExp Decl ConstDecl ConstDef ConstInitVal BlockItem LVal ConstExp InitVal VarDef VarDecl ClosedIf OpenIf NonIfStmt CompItem
 
 
 %%
@@ -56,9 +56,31 @@ void yyerror(std::unique_ptr<CompUnit> &ast, const char *s);
 // 此时我们应该把 FuncDef 返回的结果收集起来, 作为  传给调用 parser 的函数
 // $1 指代规则里第一个符号的返回值, 也就是 FuncDef 的返回值
 CompUnit
-	: FuncDef {
-		auto comp_unit = make_unique<CompUnit>(static_cast<FuncDef*>($1));
+	: CompList {
+		auto comp_unit = make_unique<CompUnit>($1);
 		ast = move(comp_unit);
+	};
+
+CompItem
+	: FuncDef {
+		auto ast = new FuncDefItem($1);
+		$$ = ast;
+	}
+	| Decl {
+		auto ast = new DeclItem($1);
+		$$ = ast;
+	};
+
+CompList
+	: CompItem {
+		auto list = new vector<unique_ptr<CompItem> >();
+		list->emplace_back(static_cast<CompItem*>($1));
+		$$ = static_cast<void*>(list);
+	}
+	| CompList CompItem {
+		auto list = static_cast<vector<unique_ptr<CompItem> >*>($1);
+		list->emplace_back(static_cast<CompItem*>($2));
+		$$ = static_cast<void*>(list);
 	};
 
 // FuncDef ::= FuncType IDENT '(' ')' Block;
@@ -71,18 +93,48 @@ CompUnit
 // 否则会发生内存泄漏, 而 unique_ptr 这种智能指针可以自动帮我们 delete
 // 虽然此处你看不出用 unique_ptr 和手动 delete 的区别, 但当我们定义了  之后
 // 这种写法会省下很多内存管理的负担
+
+FuncFParams
+	: {
+		$$ = new vector<string>();
+	}
+	| INT IDENT {
+		auto list = new vector<string>();
+		list->push_back(*unique_ptr<string>($2));
+		$$ = static_cast<void*>(list);
+	}
+	| FuncFParams ',' INT IDENT {
+		auto list = static_cast<vector<string>*>($1);
+		list->push_back(*unique_ptr<string>($4));
+		$$ = static_cast<void*>(list);
+	};
+
+FuncRParams
+	: {
+		$$ = new vector<unique_ptr<Exp> >();
+	}
+	| Exp {
+		auto list = new vector<unique_ptr<Exp> >();
+		list->emplace_back(static_cast<Exp*>($1));
+		$$ = static_cast<void*>(list);
+	}
+	| FuncRParams ',' Exp {
+		auto list = static_cast<vector<unique_ptr<Exp> >*>($1);
+		list->emplace_back(static_cast<Exp*>($3));
+		$$ = static_cast<void*>(list);
+	};
+
 FuncDef
-	: FuncType IDENT '(' ')' Block {
-		auto ast = new FuncDef($1, *unique_ptr<string>($2), $5);
+	: INT IDENT '(' FuncFParams ')' Block {
+		auto ast = new FuncDef("int", *unique_ptr<string>($2), $4, $6);
+		$$ = ast;
+	}
+	| VOID IDENT '(' FuncFParams ')' Block {
+		auto ast = new FuncDef("void", *unique_ptr<string>($2), $4, $6);
 		$$ = ast;
 	};
 
 // 同上, 不再解释
-FuncType
-	: INT {
-		auto ast = new FuncType();
-		$$ = ast;
-	};
 
 Block
 	: '{' BlockItemList '}' {
@@ -156,12 +208,6 @@ NonIfStmt
 		$$ = ast;
 	}
 
-Number
-	: INT_CONST {
-		auto ast = new Number($1);
-		$$ = ast;
-	};
-
 Exp
 	: LOrExp {
 		auto ast = new Exp($1);
@@ -177,7 +223,7 @@ PrimaryExp
 		auto ast = new LValExp($1);
 		$$ = ast;
 	}
-	| Number {
+	| INT_CONST {
 		auto ast = new NumberExp($1);
 		$$ = ast;
 	};
@@ -193,6 +239,10 @@ UnaryExp
 	}
 	| '!' UnaryExp {
 		auto ast = new OpUnaryExp("!", $2);
+		$$ = ast;
+	}
+	| IDENT '(' FuncRParams ')' {
+		auto ast = new FuncUnaryExp(*unique_ptr<string>($1), $3);
 		$$ = ast;
 	};
 

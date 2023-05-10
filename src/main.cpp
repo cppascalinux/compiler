@@ -39,10 +39,10 @@ int main(int argc, const char *argv[]) {
 	// cout << *ast << endl;
 	ast->Dump();
 	cout << endl;
-	auto koopa = GetProgram(move(ast));
-	string code_koopa = koopa->Str();
-	ofstream outfile;
-	outfile.open(output, ios::out | ios::trunc);
-	outfile << code_koopa;
+	// auto koopa = GetProgram(move(ast));
+	// string code_koopa = koopa->Str();
+	// ofstream outfile;
+	// outfile.open(output, ios::out | ios::trunc);
+	// outfile << code_koopa;
 	return 0;
 }

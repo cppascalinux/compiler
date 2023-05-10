@@ -75,7 +75,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 		return GetExp(new_ast->exp, blocks, stmts);
 	} else if (ast->exp_type == sysy::NUMBEREXP){
 		auto new_ast = static_cast<sysy::NumberExp*>(ast.get());
-		return make_unique<koopa::IntValue>(new_ast->num->int_const);
+		return make_unique<koopa::IntValue>(new_ast->num);
 	} else {
 		auto new_ast = static_cast<sysy::LValExp*>(ast.get());
 		auto symb = symtab_stack.GetSymbol(new_ast->lval->ident);
@@ -471,21 +471,19 @@ unique_ptr<koopa::FunBody> GetFunBody(const unique_ptr<sysy::Block> &ast) {
 	return make_unique<koopa::FunBody>(move(blocks));
 }
 
-unique_ptr<koopa::Type> GetFuncType(const unique_ptr<sysy::FuncType> &ast) {
-	return make_unique<koopa::IntType>();
-}
-
 unique_ptr<koopa::FunDef> GetFuncDef(const unique_ptr<sysy::FuncDef> &ast) {
-	auto fun_type = GetFuncType(ast->func_type);
-	string s("@" + ast->ident);
-	auto fun_body = GetFunBody(ast->block);
-	return make_unique<koopa::FunDef>(s, nullptr, move(fun_type), move(fun_body));
+	// auto fun_type = GetFuncType(ast->func_type);
+	// string s("@" + ast->ident);
+	// auto fun_body = GetFunBody(ast->block);
+	// return make_unique<koopa::FunDef>(s, nullptr, move(fun_type), move(fun_body));
+	return nullptr;
 }
 
 unique_ptr<koopa::Program> GetProgram(const unique_ptr<sysy::CompUnit> &ast) {
-	vector<unique_ptr<koopa::FunDef> > v;
-	v.push_back(GetFuncDef(ast->func_def));
-	return make_unique<koopa::Program>(vector<unique_ptr<koopa::GlobalSymbolDef> >(), move(v));
+	// vector<unique_ptr<koopa::FunDef> > v;
+	// v.push_back(GetFuncDef(ast->func_def));
+	// return make_unique<koopa::Program>(vector<unique_ptr<koopa::GlobalSymbolDef> >(), move(v));
+	return nullptr;
 }
 
 

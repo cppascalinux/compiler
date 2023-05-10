@@ -17,16 +17,6 @@ class Base {
 		virtual void Dump() const = 0;
 };
 
-// Number      ::= INT_CONST;
-class Number: public Base {
-	public:
-		int int_const;
-		Number(int x): int_const(x) {}
-		virtual void Dump() const override {
-			std::cout << "Number { " << int_const << " }";
-		}
-};
-
 
 // LVal          ::= IDENT;
 class LVal: public Base {
@@ -34,7 +24,7 @@ class LVal: public Base {
 		std::string ident;
 		LVal(std::string s): ident(s) {}
 		virtual void Dump() const override {
-			std::cout << "LVal { " << ident << " }";
+			std::cout << "LVal { " + ident + " }";
 		}
 };
 
@@ -85,15 +75,13 @@ class LValExp: public PrimaryExp {
 
 class NumberExp: public PrimaryExp {
 	public:
-		std::unique_ptr<Number> num;
-		NumberExp(Base *p): PrimaryExp(NUMBEREXP), num(static_cast<Number*>(p)) {}
+		int num;
+		NumberExp(int x): PrimaryExp(NUMBEREXP), num(x) {}
 		virtual void Dump() const override {
-			std::cout << "PrimaryExp { ";
-			num->Dump();
-			std::cout << " }";
+			std::cout << "PrimaryExp { " + std::to_string(num) + " }" ;
 		}
 		virtual int Eval() const override {
-			return num->int_const;
+			return num;
 		}
 };
 
@@ -101,7 +89,8 @@ class NumberExp: public PrimaryExp {
 // UnaryExp    ::= PrimaryExp | UnaryOp UnaryExp;
 enum UnaryExpType {
 	PRIMUNARYEXP,
-	OPUNARYEXP
+	OPUNARYEXP,
+	FUNCUNARYEXP
 };
 
 class UnaryExp: public Base {
@@ -119,7 +108,7 @@ class PrimUnaryExp: public UnaryExp {
 		PrimUnaryExp(Base *p):
 			UnaryExp(PRIMUNARYEXP), prim_exp(static_cast<PrimaryExp*>(p)) {}
 		virtual void Dump() const override {
-			std::cout << "UnaryExp { " << std::endl;
+			std::cout << "UnaryExp { ";
 			prim_exp->Dump();
 			std::cout << " }";
 		}
@@ -147,6 +136,15 @@ class OpUnaryExp: public UnaryExp {
 				return -val;
 			return !val;
 		}
+};
+
+class FuncUnaryExp: public UnaryExp {
+	public:
+		std::string ident;
+		std::vector<std::unique_ptr<Exp> > params;
+		FuncUnaryExp(std::string s, void *p);
+		virtual void Dump() const override;
+		virtual int Eval() const override;
 };
 
 
@@ -740,7 +738,7 @@ class Block: public Base {
 				ptr->Dump();
 				std::cout << " ";
 			}
-			std::cout << " }";
+			std::cout << "}";
 		}
 };
 
@@ -756,42 +754,79 @@ class BlockStmt: public NonIfStmt {
 		}
 };
 
-// FuncType  ::= "int";
-class FuncType: public Base {
-	public:
-		virtual void Dump() const override {
-			std::cout << "FuncType { int }";
-		}
-};
 
-
-
-// FuncDef   ::= FuncType IDENT "(" ")" Block;
+// FuncDef     ::= FuncType IDENT "(" [FuncFParams] ")" Block;
 class FuncDef: public Base {
 	public:
-		std::unique_ptr<FuncType> func_type;
+		std::string func_type;
 		std::string ident;
+		std::vector<std::string> params;
 		std::unique_ptr<Block> block;
-		FuncDef(Base *p, std::string s, Base *q):
-			func_type(static_cast<FuncType*>(p)), ident(s),
+		FuncDef(std::string f, std::string s, void *l, Base *q):
+			func_type(f), ident(s),
+			params(move(*std::unique_ptr<std::vector<std::string> >(
+			static_cast<std::vector<std::string>*>(l)))),
 			block(static_cast<Block*>(q)) {}
 		virtual void Dump() const override {
-			std::cout << "FuncDef { ";
-			func_type->Dump();
-			std::cout << ", " << ident << ", ";
+			std::cout << "FuncDef { " + func_type + " " + ident + " ( ";
+			for (auto param: params) {
+				std::cout << "int " + param + ", ";
+			}
+			std::cout << " ) ";
 			block->Dump();
 			std::cout << " }";
 		}
 };
 
+enum CompItemType {
+	FUNCDEFITEM,
+	DECLITEM
+};
+
+class CompItem: public Base {
+	public:
+		CompItemType item_type;
+		CompItem(CompItemType a): item_type(a) {}
+		virtual ~CompItem() = default;
+		virtual void Dump() const override = 0;
+};
+
+class FuncDefItem: public CompItem {
+	public:
+		std::unique_ptr<FuncDef> func_def;
+		FuncDefItem(Base *p): CompItem(FUNCDEFITEM),
+			func_def(static_cast<FuncDef*>(p)) {}
+		virtual void Dump() const override {
+			std::cout << "CompItem { ";
+			func_def->Dump();
+			std::cout << " }";
+		}
+};
+
+class DeclItem: public CompItem {
+	public:
+		std::unique_ptr<Decl> decl;
+		DeclItem(Base *p): CompItem(DECLITEM),
+			decl(static_cast<Decl*>(p)) {}
+		virtual void Dump() const override {
+			std::cout << "CompItem { ";
+			decl->Dump();
+			std::cout << " }";
+		}
+};
+
+
 // CompUnit  ::= FuncDef;
 class CompUnit: public Base {
 	public:
-		std::unique_ptr<FuncDef> func_def;
-		CompUnit(Base *p): func_def(static_cast<FuncDef*>(p)) {}
+		std::vector<std::unique_ptr<CompItem> > items;
+		CompUnit(void *p):
+			items(move(*std::unique_ptr<std::vector<std::unique_ptr<CompItem> > >(
+			static_cast<std::vector<std::unique_ptr<CompItem> >*>(p)))) {}
 		virtual void Dump() const override {
 			std::cout << "CompUnit { ";
-			func_def->Dump();
+			for (const auto &ptr: items)
+				ptr->Dump();
 			std::cout << " }";
 		}
 };
