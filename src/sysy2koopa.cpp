@@ -482,6 +482,7 @@ vector<int> suf_mul, vector<int> &result) {
 		if (ptr->init_type == sysy::EXPINITVAL) {
 			auto exp_ptr = static_cast<sysy::ExpInitVal*>(ptr.get());
 			result.push_back(exp_ptr->exp->Eval());
+			cur_pos++;
 		} else {
 			for (int i = 0; i + 1 < suf_mul.size(); i++) {
 				if (cur_pos % suf_mul[i] == 0) {
