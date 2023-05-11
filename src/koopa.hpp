@@ -101,9 +101,7 @@ class AggregateInit: public Initializer {
 				s += ptr->Str();
 				s += ", ";
 			}
-			s.erase(s.end() - 2, s.end());
-			s += "}";
-			return s;
+			return s.substr(0, s.size()-2) + "}";
 		}
 };
 
@@ -449,8 +447,7 @@ class FunParams {
 			std::string s;
 			for (const auto &pr: params)
 				s += pr.first + ": " + pr.second->Str() + ", ";
-			s.erase(s.end() - 2, s.end());
-			return s;
+			return s.substr(0, s.size()-2);
 		}
 };
 

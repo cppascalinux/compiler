@@ -6,6 +6,7 @@
 #include <string>
 #include "sysy.hpp"
 #include "sysy2koopa.hpp"
+#include "koopa2riscv.hpp"
 
 using namespace std;
 
@@ -33,7 +34,7 @@ int main(int argc, const char *argv[]) {
 	// 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
 	// compiler 模式 输入文件 -o 输出文件
 	assert(argc == 5);
-	auto mode = argv[1];
+	auto mode = string(argv[1]);
 	auto input = argv[2];
 	auto output = argv[4];
 
@@ -50,11 +51,18 @@ int main(int argc, const char *argv[]) {
 	// cout << *ast << endl;
 	ast->Dump();
 	cout << endl;
+
 	auto koopa = GetCompUnit(move(ast));
-	string code_koopa = koopa->Str();
-	code_koopa = lib_funcs + code_koopa;
+
 	ofstream outfile;
 	outfile.open(output, ios::out | ios::trunc);
-	outfile << code_koopa;
+	if (mode == "-koopa") {
+		string code_koopa = koopa->Str();
+		code_koopa = lib_funcs + code_koopa;
+		outfile << code_koopa;
+	} else if (mode == "-riscv") {
+		string code_riscv = ParseProgram(koopa);
+		outfile << code_riscv;
+	}
 	return 0;
 }
