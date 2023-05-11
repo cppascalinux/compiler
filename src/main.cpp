@@ -52,7 +52,7 @@ int main(int argc, const char *argv[]) {
 	ast->Dump();
 	cout << endl;
 
-	auto koopa = GetCompUnit(move(ast));
+	auto koopa = GetCompUnit(ast.get());
 
 	ofstream outfile;
 	outfile.open(output, ios::out | ios::trunc);
@@ -61,7 +61,7 @@ int main(int argc, const char *argv[]) {
 		code_koopa = lib_funcs + code_koopa;
 		outfile << code_koopa;
 	} else if (mode == "-riscv") {
-		string code_riscv = ParseProgram(koopa);
+		string code_riscv = ParseProgram(koopa.get());
 		outfile << code_riscv;
 	}
 	return 0;

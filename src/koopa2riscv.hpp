@@ -6,4 +6,4 @@
 #include "koopa.hpp"
 #include "types.hpp"
 
-std::string ParseProgram(const std::unique_ptr<koopa::Program> &ptr);
+std::string ParseProgram(const koopa::Program *ptr);
