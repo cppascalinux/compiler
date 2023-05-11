@@ -69,7 +69,10 @@ unique_ptr<koopa::Value> GetLVal(const unique_ptr<sysy::LVal> &ast,
 vector<unique_ptr<koopa::Block> > &blocks,
 vector<unique_ptr<koopa::Statement> > &stmts) {
 	auto symb = symtab_stack.GetSymbol(ast->ident);
-	assert(symb->symb_type == symtab::VARSYMB);
+	if(symb->symb_type == symtab::CONSTSYMB) {
+		auto const_symb = static_cast<symtab::ConstSymb*>(symb);
+		return make_unique<koopa::IntValue>(const_symb->val);
+	}
 	auto var_symb = static_cast<symtab::VarSymb*>(symb);
 	string ident = var_symb->name;
 	if (var_symb->is_param && !ast->dims.empty())
