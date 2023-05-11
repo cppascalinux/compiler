@@ -484,7 +484,7 @@ vector<int> suf_mul, vector<int> &result) {
 			result.push_back(exp_ptr->exp->Eval());
 			cur_pos++;
 		} else {
-			for (int i = 0; i + 1 < suf_mul.size(); i++) {
+			for (int i = 1; i + 1 < suf_mul.size(); i++) {
 				if (cur_pos % suf_mul[i] == 0) {
 					vector<int> new_suf(suf_mul.begin() + i, suf_mul.end());
 					GetConstInitVal(ptr, new_suf, result);
@@ -511,7 +511,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 			result.push_back(GetExp(exp_ptr->exp, blocks, stmts));
 			cur_pos++;
 		} else {
-			for (int i = 0; i + 1 < suf_mul.size(); i++) {
+			for (int i = 1; i + 1 < suf_mul.size(); i++) {
 				if (cur_pos % suf_mul[i] == 0) {
 					vector<int> new_suf(suf_mul.begin() + i, suf_mul.end());
 					GetInitVal(ptr, new_suf, result, blocks, stmts);
