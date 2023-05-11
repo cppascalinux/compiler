@@ -30,7 +30,7 @@ class SymbolValue: public Value {
 	public:
 		std::string symbol;
 		SymbolValue(std::string s): Value(SYMBOLVALUE), symbol(s) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return symbol;
 		}
 };
@@ -39,7 +39,7 @@ class IntValue: public Value {
 	public:
 		int integer;
 		IntValue(int x): Value(INTVALUE), integer(x) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return std::to_string(integer);
 		}
 };
@@ -47,7 +47,7 @@ class IntValue: public Value {
 class UndefValue: public Value {
 	public:
 		UndefValue(): Value(UNDEFVALUE) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return "undef";
 		}
 };
@@ -75,7 +75,7 @@ class IntInit: public Initializer {
 	public:
 		int integer;
 		IntInit(int x): Initializer(INTINIT), integer(x) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return std::to_string(integer);
 		}
 };
@@ -83,25 +83,19 @@ class IntInit: public Initializer {
 class UndefInit: public Initializer {
 	public:
 		UndefInit(): Initializer(UNDEFINIT) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return "undef";
 		}
 };
 
-class AggregateInit: public Initializer {
-	public:
-		std::unique_ptr<Aggregate> aggr;
-		AggregateInit(std::unique_ptr<Aggregate> a);
-		std::string Str() const override;
-};
-
 
 // Aggregate ::= "{" Initializer {"," Initializer} "}";
-class Aggregate {
+class AggregateInit: public Initializer {
 	public:
-		std::vector<std::unique_ptr<Aggregate> > inits;
-		Aggregate(std::vector<std::unique_ptr<Aggregate> > a): inits(std::move(a)) {}
-		std::string Str() const {
+		std::vector<std::unique_ptr<Initializer> > inits;
+		AggregateInit(std::vector<std::unique_ptr<Initializer> > a):
+			Initializer(AGGREGATEINIT), inits(std::move(a)) {}
+		virtual std::string Str() const {
 			std::string s("{");
 			for (const auto &ptr: inits) {
 				s += ptr->Str();
@@ -162,19 +156,52 @@ class Load {
 };
 
 
+// Statement ::= SymbolDef | Store | FunCall;
+enum StatementType {
+	SYMBOLDEFSTMT,
+	STORESTMT,
+	FUNCALLSTMT
+};
+
+class Statement {
+	public:
+		StatementType stmt_type;
+		Statement(StatementType a): stmt_type(a) {}
+		virtual ~Statement() = default;
+		virtual std::string Str() const = 0;
+};
+
+
+// EndStatement ::= Branch | Jump | Return;
+enum EndStmtType {
+	BRANCHEND,
+	JUMPEND,
+	RETURNEND
+};
+
+class EndStatement {
+	public:
+		EndStmtType end_type;
+		EndStatement(EndStmtType a): end_type(a) {}
+		virtual ~EndStatement() = default;
+		virtual std::string Str() const = 0;
+};
+
+
 // Store ::= "store" (Value | Initializer) "," SYMBOL;
 enum StoreType {
 	VALUESTORE,
 	INITSTORE
 };
 
-class Store {
+class Store: public Statement {
 	public:
 		StoreType store_type;
 		std::string symbol;
-		Store(StoreType a, std::string s): store_type(a), symbol(s) {}
+		Store(StoreType a, std::string s):
+			Statement(STORESTMT), store_type(a), symbol(s) {}
 		virtual ~Store() = default;
-		virtual std::string Str() const = 0;
+		virtual std::string Str() const override = 0;
 };
 
 class ValueStore: public Store {
@@ -182,7 +209,7 @@ class ValueStore: public Store {
 		std::unique_ptr<Value> val;
 		ValueStore(std::unique_ptr<Value> p, std::string s):
 			Store(VALUESTORE, s), val(std::move(p)) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return "store " + val->Str() + ", " + symbol;
 		}
 };
@@ -192,44 +219,44 @@ class InitStore: public Store {
 		std::unique_ptr<Initializer> init;
 		InitStore(std::unique_ptr<Initializer> p, std::string s):
 			Store(INITSTORE, s), init(std::move(p)) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return "store " + init->Str() + ", " + symbol;
 		}
 };
 
 
 // Branch ::= "br" Value "," SYMBOL "," SYMBOL;
-class Branch {
+class Branch: public EndStatement {
 	public:
 		std::unique_ptr<Value> val;
 		std::string symbol1, symbol2;
 		Branch(std::unique_ptr<Value> p, std::string a, std::string b):
-			val(std::move(p)), symbol1(a), symbol2(b) {}
-		std::string Str() const {
+			EndStatement(BRANCHEND), val(std::move(p)), symbol1(a), symbol2(b) {}
+		virtual std::string Str() const override {
 			return "br " + val->Str() + ", " + symbol1 + ", " + symbol2;
 		}
 };
 
 
 // Jump ::= "jump" SYMBOL;
-class Jump {
+class Jump: public EndStatement {
 	public:
 		std::string symbol;
-		Jump(std::string s): symbol(s) {}
-		std::string Str() const {
+		Jump(std::string s): EndStatement(JUMPEND), symbol(s) {}
+		virtual std::string Str() const override {
 			return "jump " + symbol;
 		}
 };
 
 
 // FunCall ::= "call" SYMBOL "(" [Value {"," Value}] ")";
-class FunCall {
+class FunCall: public Statement {
 	public:
 		std::string symbol;
 		std::vector<std::unique_ptr<Value> > params;
 		FunCall(std::string s, std::vector<std::unique_ptr<Value> > v):
-			symbol(s), params(std::move(v)) {}
-		std::string Str() const {
+			Statement(FUNCALLSTMT), symbol(s), params(std::move(v)) {}
+		virtual std::string Str() const override {
 			std::string s("call " + symbol + "(");
 			if (!params.empty()) {
 				for (const auto &p: params)
@@ -242,11 +269,12 @@ class FunCall {
 
 
 // Return ::= "ret" [Value];
-class Return {
+class Return: public EndStatement {
 	public:
 		std::unique_ptr<Value> val;
-		Return(std::unique_ptr<Value> p): val(std::move(p)) {}
-		std::string Str() const {
+		Return(std::unique_ptr<Value> p):
+			EndStatement(RETURNEND), val(std::move(p)) {}
+		virtual std::string Str() const override {
 			if (val)
 				return "ret " + val->Str();
 			else
@@ -286,17 +314,19 @@ enum SymbolDefType {
 	MEMORYDEF,
 	LOADDEF,
 	GETPTRDEF,
+	GETELEMPTRDEF,
 	BINEXPRDEF,
 	FUNCALLDEF
 };
 
-class SymbolDef {
+class SymbolDef: public Statement {
 	public:
 		SymbolDefType def_type;
 		std::string symbol;
-		SymbolDef(SymbolDefType a, std::string s): def_type(a), symbol(s) {}
+		SymbolDef(SymbolDefType a, std::string s):
+			Statement(SYMBOLDEFSTMT), def_type(a), symbol(s) {}
 		virtual ~SymbolDef() = default;
-		virtual std::string Str() const = 0;
+		virtual std::string Str() const override = 0;
 };
 
 class MemoryDef: public SymbolDef {
@@ -304,7 +334,7 @@ class MemoryDef: public SymbolDef {
 		std::unique_ptr<MemoryDec> mem_dec;
 		MemoryDef(std::string s, std::unique_ptr<MemoryDec> p):
 			SymbolDef(MEMORYDEF, s), mem_dec(std::move(p)) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return symbol + " = " + mem_dec->Str();
 		}
 };
@@ -314,7 +344,7 @@ class LoadDef: public SymbolDef {
 		std::unique_ptr<Load> load;
 		LoadDef(std::string s, std::unique_ptr<Load> p):
 			SymbolDef(LOADDEF, s), load(std::move(p)) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return symbol + " = " + load->Str();
 		}
 };
@@ -324,8 +354,18 @@ class GetPtrDef: public SymbolDef {
 		std::unique_ptr<GetPointer> get_ptr;
 		GetPtrDef(std::string s, std::unique_ptr<GetPointer> p):
 			SymbolDef(GETPTRDEF, s), get_ptr(std::move(p)) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return symbol + " = " + get_ptr->Str();
+		}
+};
+
+class GetElemPtrDef: public SymbolDef {
+	public:
+		std::unique_ptr<GetElementPointer> get_elem_ptr;
+		GetElemPtrDef(std::string s, std::unique_ptr<GetElementPointer> p):
+			SymbolDef(GETELEMPTRDEF, s), get_elem_ptr(std::move(p)) {}
+		virtual std::string Str() const override {
+			return symbol + " = " + get_elem_ptr->Str();
 		}
 };
 
@@ -334,7 +374,7 @@ class BinExprDef: public SymbolDef {
 		std::unique_ptr<BinaryExpr> bin_expr;
 		BinExprDef(std::string s, std::unique_ptr<BinaryExpr> p):
 			SymbolDef(BINEXPRDEF, s), bin_expr(std::move(p)) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return symbol + " = " + bin_expr->Str();
 		}
 };
@@ -344,7 +384,7 @@ class FunCallDef: public SymbolDef {
 		std::unique_ptr<FunCall> fun_call;
 		FunCallDef(std::string s, std::unique_ptr<FunCall> p):
 			SymbolDef(FUNCALLDEF, s), fun_call(std::move(p)) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return symbol + " = " + fun_call->Str();
 		}
 };
@@ -363,98 +403,6 @@ class GlobalSymbolDef {
 };
 
 
-// Statement ::= SymbolDef | Store | FunCall;
-enum StatementType {
-	SYMBOLDEFSTMT,
-	STORESTMT,
-	FUNCALLSTMT
-};
-
-class Statement {
-	public:
-		StatementType stmt_type;
-		Statement(StatementType a): stmt_type(a) {}
-		virtual ~Statement() = default;
-		virtual std::string Str() const = 0;
-};
-
-class SymbolDefStmt: public Statement {
-	public:
-		std::unique_ptr<SymbolDef> sym_def;
-		SymbolDefStmt(std::unique_ptr<SymbolDef> p):
-			Statement(SYMBOLDEFSTMT), sym_def(std::move(p)) {}
-		std::string Str() const override {
-			return "\t" + sym_def->Str();
-		}
-};
-
-class StoreStmt: public Statement {
-	public:
-		std::unique_ptr<Store> store;
-		StoreStmt(std::unique_ptr<Store> p):
-			Statement(STORESTMT), store(std::move(p)) {}
-		std::string Str() const override {
-			return "\t" + store->Str();
-		}
-};
-
-class FunCallStmt: public Statement {
-	public:
-		std::unique_ptr<FunCall> fun_call;
-	FunCallStmt(std::unique_ptr<FunCall> p):
-		Statement(FUNCALLSTMT), fun_call(std::move(p)) {}
-	std::string Str() const override {
-		return "\t" + fun_call->Str();
-	}
-};
-
-
-// EndStatement ::= Branch | Jump | Return;
-enum EndStmtType {
-	BRANCHEND,
-	JUMPEND,
-	RETURNEND
-};
-
-class EndStatement {
-	public:
-		EndStmtType end_type;
-		EndStatement(EndStmtType a): end_type(a) {}
-		virtual ~EndStatement() = default;
-		virtual std::string Str() const = 0;
-};
-
-class BranchEnd: public EndStatement {
-	public:
-		std::unique_ptr<Branch> branch;
-		BranchEnd(std::unique_ptr<Branch> p):
-			EndStatement(BRANCHEND), branch(std::move(p)) {}
-		std::string Str() const override {
-			return "\t" + branch->Str();
-		}
-};
-
-class JumpEnd: public EndStatement {
-	public:
-		std::unique_ptr<Jump> jump;
-		JumpEnd(std::unique_ptr<Jump> p):
-			EndStatement(JUMPEND), jump(std::move(p)) {}
-		std::string Str() const override {
-			return "\t" + jump->Str();
-		}
-};
-
-class ReturnEnd: public EndStatement {
-	public:
-		std::unique_ptr<Return> ret;
-		ReturnEnd(std::unique_ptr<Return> p):
-			EndStatement(RETURNEND), ret(std::move(p)) {}
-		std::string Str() const override {
-			return "\t" + ret->Str();
-		}
-};
-
-
 // Block ::= SYMBOL ":" {Statement} EndStatement;
 class Block {
 	public:
@@ -467,8 +415,8 @@ class Block {
 		std::string Str() const {
 			std::string s(symbol + ":\n");
 			for (const auto &ptr: stmts)
-				s += ptr->Str() + "\n";
-			s += end_stmt->Str();
+				s += "\t" + ptr->Str() + "\n";
+			s += "\t" + end_stmt->Str();
 			return s;
 		}
 };

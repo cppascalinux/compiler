@@ -44,8 +44,13 @@ void yyerror(std::unique_ptr<CompUnit> &ast, const char *s);
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <void_val> BlockItemList ConstDefList VarDefList CompList FuncFParamList FuncRParamList
-%type <ast_val> FuncDef Block Stmt Exp PrimaryExp UnaryExp AddExp MulExp RelExp EqExp LAndExp LOrExp Decl ConstDecl ConstDef ConstInitVal BlockItem LVal InitVal VarDef VarDecl ClosedIf OpenIf NonIfStmt CompItem FuncFParam
+%type <void_val> BlockItemList ConstDefList VarDefList CompList FuncFParamList
+%type <void_val> FuncRParamList DimList InitValList
+
+%type <ast_val> FuncDef Block Stmt Exp PrimaryExp UnaryExp AddExp MulExp
+%type <ast_val> RelExp EqExp LAndExp LOrExp Decl ConstDecl ConstDef
+%type <ast_val> BlockItem LVal InitVal VarDef VarDecl ClosedIf OpenIf NonIfStmt
+%type <ast_val> CompItem FuncFParam
 
 
 %%
@@ -75,12 +80,12 @@ CompList
 	: CompItem {
 		auto list = new vector<unique_ptr<CompItem> >();
 		list->emplace_back(static_cast<CompItem*>($1));
-		$$ = static_cast<void*>(list);
+		$$ = list;
 	}
 	| CompList CompItem {
 		auto list = static_cast<vector<unique_ptr<CompItem> >*>($1);
 		list->emplace_back(static_cast<CompItem*>($2));
-		$$ = static_cast<void*>(list);
+		$$ = list;
 	};
 
 // FuncDef ::= FuncType IDENT '(' ')' Block;
@@ -96,7 +101,14 @@ CompList
 
 FuncFParam
 	: INT IDENT {
-		auto ast = new FuncFParam(*unique_ptr<string>($2));
+		auto ast = new FuncFParam(*unique_ptr<string>($2),
+			new vector<unique_ptr<Exp> >());
+		$$ = ast;
+	}
+	| INT IDENT '[' ']' DimList {
+		auto list = static_cast<vector<unique_ptr<Exp> >*>($5);
+		list->emplace(list->begin(), nullptr);
+		auto ast = new FuncFParam(*unique_ptr<string>($2), list);
 		$$ = ast;
 	};
 
@@ -107,12 +119,12 @@ FuncFParamList
 	| FuncFParam {
 		auto list = new vector<unique_ptr<FuncFParam> >();
 		list->emplace_back(static_cast<FuncFParam*>($1));
-		$$ = static_cast<void*>(list);
+		$$ = list;
 	}
 	| FuncFParamList ',' FuncFParam {
 		auto list = static_cast<vector<unique_ptr<FuncFParam> >*>($1);
 		list->emplace_back(static_cast<FuncFParam*>($3));
-		$$ = static_cast<void*>(list);
+		$$ = list;
 	};
 
 FuncRParamList
@@ -122,12 +134,12 @@ FuncRParamList
 	| Exp {
 		auto list = new vector<unique_ptr<Exp> >();
 		list->emplace_back(static_cast<Exp*>($1));
-		$$ = static_cast<void*>(list);
+		$$ = list;
 	}
 	| FuncRParamList ',' Exp {
 		auto list = static_cast<vector<unique_ptr<Exp> >*>($1);
 		list->emplace_back(static_cast<Exp*>($3));
-		$$ = static_cast<void*>(list);
+		$$ = list;
 	};
 
 FuncDef
@@ -312,21 +324,26 @@ LOrExp
 		$$ = ast;
 	};
 
-LVal
-	: IDENT {
-		auto ast = new LVal(*unique_ptr<string>($1));
-		$$ = ast;
+DimList
+	: {
+		auto list = new vector<unique_ptr<Exp> >();
+		$$ = list;
+	}
+	| DimList '[' Exp ']' {
+		auto list = static_cast<vector<unique_ptr<Exp> >*>($1);
+		list->emplace_back(static_cast<Exp*>($3));
+		$$ = list;
 	};
 
-ConstInitVal
-	: Exp {
-		auto ast = new ConstInitVal($1);
+LVal
+	: IDENT DimList {
+		auto ast = new LVal(*unique_ptr<string>($1), $2);
 		$$ = ast;
 	};
 
 ConstDef
-	: IDENT '=' ConstInitVal {
-		auto ast = new ConstDef(*unique_ptr<string>($1), $3);
+	: IDENT DimList '=' InitVal {
+		auto ast = new ConstDef(*unique_ptr<string>($1), $2, $4);
 		$$ = ast;
 	};
 
@@ -334,12 +351,12 @@ ConstDefList
 	: ConstDef {
 		auto defs = new vector<unique_ptr<ConstDef> >();
 		defs->emplace_back(static_cast<ConstDef*>($1));
-		$$ = static_cast<void*>(defs);
+		$$ =defs;
 	}
 	| ConstDefList ',' ConstDef {
 		auto defs = static_cast<vector<unique_ptr<ConstDef> >*>($1);
 		defs->emplace_back(static_cast<ConstDef*>($3));
-		$$ = static_cast<void*>(defs);
+		$$ =defs;
 	};
 
 ConstDecl
@@ -369,27 +386,47 @@ BlockItem
 BlockItemList
 	: {
 		auto items = new vector<unique_ptr<BlockItem> >();
-		$$ = static_cast<void*>(items);
+		$$ = items;
 	}
 	| BlockItemList BlockItem {
 		auto items = static_cast<vector<unique_ptr<BlockItem> >*>($1);
 		items->emplace_back(static_cast<BlockItem*>($2));
-		$$ = static_cast<void*>(items);
+		$$ = items;
+	};
+
+InitValList
+	: {
+		auto list = new vector<unique_ptr<InitVal> >();
+		$$ = list;
+	}
+	| InitVal {
+		auto list = new vector<unique_ptr<InitVal> >();
+		list->emplace_back(static_cast<InitVal*>($1));
+		$$ = list;
+	}
+	| InitValList ',' InitVal {
+		auto list = static_cast<vector<unique_ptr<InitVal> >*>($1);
+		list->emplace_back(static_cast<InitVal*>($3));
+		$$ = list;
 	};
 
 InitVal
 	: Exp {
-		auto ast = new InitVal($1);
+		auto ast = new ExpInitVal($1);
+		$$ = ast;
+	}
+	| '{' InitValList '}' {
+		auto ast = new ListInitVal($2);
 		$$ = ast;
 	};
 
 VarDef
-	: IDENT {
-		auto ast = new VarDef(*unique_ptr<string>($1), nullptr);
+	: IDENT DimList {
+		auto ast = new VarDef(*unique_ptr<string>($1), $2, nullptr);
 		$$ = ast;
 	}
-	| IDENT '=' InitVal {
-		auto ast = new VarDef(*unique_ptr<string>($1), $3);
+	| IDENT DimList '=' InitVal {
+		auto ast = new VarDef(*unique_ptr<string>($1), $2, $4);
 		$$ = ast;
 	};
 
@@ -397,12 +434,12 @@ VarDefList
 	: VarDef {
 		auto defs = new vector<unique_ptr<VarDef> >();
 		defs->emplace_back(static_cast<VarDef*>($1));
-		$$ = static_cast<void*>(defs);
+		$$ = defs;
 	}
 	| VarDefList ',' VarDef {
 		auto defs = static_cast<vector<unique_ptr<VarDef> >*>($1);
 		defs->emplace_back(static_cast<VarDef*>($3));
-		$$ = static_cast<void*>(defs);
+		$$ = defs;
 	};
 
 VarDecl

@@ -32,13 +32,17 @@ class ConstSymb: public Symbol {
 class VarSymb: public Symbol {
 	public:
 		std::string name;
-		VarSymb(std::string s): Symbol(VARSYMB), name(s) {}
+		int is_param;
+		int depth;
+		VarSymb(std::string s, int b, int d):
+			Symbol(VARSYMB), name(s), is_param(b), depth(d) {}
 };
 
 class FuncSymb: public Symbol {
 	public:
-		std::string ret_type;
-		FuncSymb(std::string s): Symbol(FUNCSYMB), ret_type(s) {}
+		int is_int;
+		FuncSymb(int a):
+			Symbol(FUNCSYMB), is_int(a) {}
 };
 
 class SymTab {
@@ -64,14 +68,14 @@ class SymTabStack {
 		SymTabStack(): symtabs(), total(0) {
 			push();
 			const auto &ptr = symtabs.back();
-			ptr->AddSymbol("getint", std::make_unique<FuncSymb>("int"));
-			ptr->AddSymbol("getch", std::make_unique<FuncSymb>("int"));
-			ptr->AddSymbol("getarray", std::make_unique<FuncSymb>("int"));
-			ptr->AddSymbol("putint", std::make_unique<FuncSymb>("void"));
-			ptr->AddSymbol("putch", std::make_unique<FuncSymb>("void"));
-			ptr->AddSymbol("putarray", std::make_unique<FuncSymb>("void"));
-			ptr->AddSymbol("starttime", std::make_unique<FuncSymb>("void"));
-			ptr->AddSymbol("stoptime", std::make_unique<FuncSymb>("void"));
+			ptr->AddSymbol("getint", std::make_unique<FuncSymb>(1));
+			ptr->AddSymbol("getch", std::make_unique<FuncSymb>(1));
+			ptr->AddSymbol("getarray", std::make_unique<FuncSymb>(1));
+			ptr->AddSymbol("putint", std::make_unique<FuncSymb>(0));
+			ptr->AddSymbol("putch", std::make_unique<FuncSymb>(0));
+			ptr->AddSymbol("putarray", std::make_unique<FuncSymb>(0));
+			ptr->AddSymbol("starttime", std::make_unique<FuncSymb>(0));
+			ptr->AddSymbol("stoptime", std::make_unique<FuncSymb>(0));
 		}
 		void push() {
 			symtabs.push_back(std::make_unique<SymTab>());

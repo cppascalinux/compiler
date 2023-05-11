@@ -17,18 +17,17 @@ class Base {
 		virtual void Dump() const = 0;
 };
 
+class Exp;
+
 
 // LVal          ::= IDENT;
 class LVal: public Base {
 	public:
 		std::string ident;
-		LVal(std::string s): ident(s) {}
-		virtual void Dump() const override {
-			std::cout << "LVal { " + ident + " }";
-		}
+		std::vector<std::unique_ptr<Exp> > dims;
+		LVal(std::string s, void *p);
+		virtual void Dump() const override;
 };
-
-class Exp;
 
 
 // PrimaryExp  ::= "(" Exp ")" | Number;
@@ -343,55 +342,91 @@ class Exp: public Base {
 };
 
 
-// ConstInitVal  ::= Exp;
-class ConstInitVal: public Base {
+// InitVal       ::= Exp | "{" [InitVal {"," InitVal}] "}";
+enum InitValType {
+	EXPINITVAL,
+	LISTINITVAL
+};
+
+class InitVal: public Base {
+	public:
+		InitValType init_type;
+		InitVal(InitValType a): init_type(a) {}
+		virtual ~InitVal() = default;
+		virtual void Dump() const override = 0;
+};
+
+class ExpInitVal: public InitVal {
 	public:
 		std::unique_ptr<Exp> exp;
-		ConstInitVal(Base *p): exp(static_cast<Exp*>(p)) {}
+		ExpInitVal(Base *p): InitVal(EXPINITVAL),
+			exp(static_cast<Exp*>(p)) {}
 		virtual void Dump() const override {
-			std::cout << "ConstInitVal { ";
+			std::cout << "InitVal {";
 			exp->Dump();
 			std::cout << " }";
 		}
 };
 
+class ListInitVal: public InitVal {
+	public:
+		std::vector<std::unique_ptr<InitVal> > inits;
+		ListInitVal(void *p): InitVal(LISTINITVAL),
+			inits(std::move(*std::unique_ptr<std::vector<std::unique_ptr<InitVal> > >(
+			static_cast<std::vector<std::unique_ptr<InitVal> >*>(p)))) {}
+		virtual void Dump() const override {
+			std::cout << "InitVal { { ";
+			for (const auto &ptr: inits) {
+				ptr->Dump();
+				std::cout << ", ";
+			}
+			std::cout << " } }";
+		}
+};
 
-// ConstDef      ::= IDENT "=" ConstInitVal;
+
+// ConstDef      ::= IDENT ["[" ConstExp "]"] "=" ConstInitVal;
 class ConstDef: public Base {
 	public:
 		std::string ident;
-		std::unique_ptr<ConstInitVal> val;
-		ConstDef(std::string s, Base *p): ident(s),
-			val(static_cast<ConstInitVal*>(p)) {}
+		std::vector<std::unique_ptr<Exp> > dims;
+		std::unique_ptr<InitVal> init_val;
+		ConstDef(std::string s, void *v, Base *p): ident(s),
+			dims(move(*std::unique_ptr<std::vector<std::unique_ptr<Exp> > >
+			(static_cast<std::vector<std::unique_ptr<Exp> >*>(v)))),
+			init_val(static_cast<InitVal*>(p)) {}
 		virtual void Dump() const override {
-			std::cout << "ConstDef { " << ident << " = ";
-			val->Dump();
+			std::cout << "ConstDef { " + ident;
+			for (const auto &ptr: dims) {
+				std::cout << "[";
+				ptr->Dump();
+				std::cout << "]";
+			}
+			std::cout << " = ";
+			init_val->Dump();
 			std::cout << " }";
 		}
 };
 
 
-// InitVal       ::= Exp;
-class InitVal: public Base {
-	public:
-		std::unique_ptr<Exp> exp;
-		InitVal(Base *p): exp(static_cast<Exp*>(p)) {}
-		virtual void Dump() const override {
-			std::cout << "InitVal { ";
-			exp->Dump();
-			std::cout << " }";
-		}
-};
-
-// VarDef        ::= IDENT | IDENT "=" InitVal;
+// VarDef        ::= IDENT {"[" ConstExp "]"}
+//                 | IDENT {"[" ConstExp "]"} "=" InitVal;
 class VarDef: public Base {
 	public:
 		std::string ident;
+		std::vector<std::unique_ptr<Exp> > dims;
 		std::unique_ptr<InitVal> init_val;
-		VarDef(std::string s, Base *p):
-			ident(s), init_val(static_cast<InitVal*>(p)) {}
+		VarDef(std::string s, void *v, Base *p): ident(s),
+			dims(move(*std::unique_ptr<std::vector<std::unique_ptr<Exp> > >
+			(static_cast<std::vector<std::unique_ptr<Exp> >*>(v)))),
+			init_val(static_cast<InitVal*>(p)) {}
 		virtual void Dump() const override {
-			std::cout << "VarDef { " << ident;
+			std::cout << "VarDef { " + ident;
+			for (const auto &ptr: dims) {
+				std::cout << "[";
+				ptr->Dump();
+				std::cout << "]";
+			}
 			if (init_val) {
 				std::cout << " = ";
 				init_val->Dump();
@@ -742,13 +777,23 @@ class BlockStmt: public NonIfStmt {
 };
 
 
-// FuncFParam  ::= INT IDENT;
+// FuncFParam ::= BType IDENT ["[" "]" {"[" ConstExp "]"}];
 class FuncFParam: public Base {
 	public:
 		std::string ident;
-		FuncFParam(std::string s): ident(s) {}
+		std::vector<std::unique_ptr<Exp> > dims;
+		FuncFParam(std::string s, void *p): ident(s),
+			dims(move(*std::unique_ptr<std::vector<std::unique_ptr<Exp> > >
+			(static_cast<std::vector<std::unique_ptr<Exp> >*>(p)))) {}
 		virtual void Dump() const override {
-			std::cout << "FuncFParam { int " + ident + " }";
+			std::cout << "FuncFParam { int " + ident;
+			for (const auto &ptr: dims) {
+				std::cout << "[";
+				if (ptr)
+					ptr->Dump();
+				std::cout << "]";
+			}
+			std::cout << " }";
 		}
 };
 

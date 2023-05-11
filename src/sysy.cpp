@@ -35,3 +35,17 @@ int FuncUnaryExp::Eval() const {
 	assert(0);
 	return 0;
 }
+
+
+LVal::LVal(std::string s, void *p): ident(s),
+	dims(move(*std::unique_ptr<std::vector<std::unique_ptr<Exp> > >
+	(static_cast<std::vector<std::unique_ptr<Exp> >*>(p)))) {}
+void LVal::Dump() const {
+	std::cout << "LVal { " + ident;
+	for (const auto &ptr: dims) {
+		std::cout << "[";
+		ptr->Dump();
+		std::cout << "]";
+	}
+	std::cout << " }";
+}
