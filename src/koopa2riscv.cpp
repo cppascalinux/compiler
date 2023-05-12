@@ -87,8 +87,8 @@ void ParseReturn(const koopa::Return *ptr) {
 	}
 }
 
-void ParseEndStmt(const koopa::EndStatement *ptr) {
-	if (ptr->end_type == koopa::RETURNEND)
+void ParseEndStmt(const koopa::Statement *ptr) {
+	if (ptr->stmt_type == koopa::RETURNEND)
 		ParseReturn(static_cast<const koopa::Return*>(ptr));
 }
 

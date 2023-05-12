@@ -42,7 +42,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 
 unique_ptr<koopa::Block> MakeKoopaBlock(
 vector<unique_ptr<koopa::Statement> > &stmts,
-unique_ptr<koopa::EndStatement> end_stmt) {
+unique_ptr<koopa::Statement> end_stmt) {
 	string symb;
 	if (!next_block_symbol.empty()) {
 		symb = next_block_symbol;

@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <iostream>
+#include <set>
 #include "types.hpp"
 
 
@@ -163,33 +164,24 @@ class Load {
 
 
 // Statement ::= SymbolDef | Store | FunCall;
+// EndStatement ::= Branch | Jump | Return;
 enum StatementType {
 	SYMBOLDEFSTMT,
 	STORESTMT,
-	FUNCALLSTMT
-};
-
-class Statement {
-	public:
-		StatementType stmt_type;
-		Statement(StatementType a): stmt_type(a) {}
-		virtual ~Statement() = default;
-		virtual std::string Str() const = 0;
-};
-
-
-// EndStatement ::= Branch | Jump | Return;
-enum EndStmtType {
+	FUNCALLSTMT,
 	BRANCHEND,
 	JUMPEND,
 	RETURNEND
 };
 
-class EndStatement {
+class Statement {
 	public:
-		EndStmtType end_type;
-		EndStatement(EndStmtType a): end_type(a) {}
-		virtual ~EndStatement() = default;
+		StatementType stmt_type;
+		std::vector<Statement*> next_stmts;
+		std::vector<Statement*> prev_stmts;
+		std::set<std::string> live_vars;
+		Statement(StatementType a): stmt_type(a) {}
+		virtual ~Statement() = default;
 		virtual std::string Str() const = 0;
 };
 
@@ -232,12 +224,12 @@ class InitStore: public Store {
 
 
 // Branch ::= "br" Value "," SYMBOL "," SYMBOL;
-class Branch: public EndStatement {
+class Branch: public Statement {
 	public:
 		std::unique_ptr<Value> val;
 		std::string symbol1, symbol2;
 		Branch(std::unique_ptr<Value> p, std::string a, std::string b):
-			EndStatement(BRANCHEND), val(std::move(p)), symbol1(a), symbol2(b) {}
+			Statement(BRANCHEND), val(std::move(p)), symbol1(a), symbol2(b) {}
 		virtual std::string Str() const override {
 			return "br " + val->Str() + ", " + symbol1 + ", " + symbol2;
 		}
@@ -245,10 +237,10 @@ class Branch: public EndStatement {
 
 
 // Jump ::= "jump" SYMBOL;
-class Jump: public EndStatement {
+class Jump: public Statement {
 	public:
 		std::string symbol;
-		Jump(std::string s): EndStatement(JUMPEND), symbol(s) {}
+		Jump(std::string s): Statement(JUMPEND), symbol(s) {}
 		virtual std::string Str() const override {
 			return "jump " + symbol;
 		}
@@ -275,11 +267,11 @@ class FunCall: public Statement {
 
 
 // Return ::= "ret" [Value];
-class Return: public EndStatement {
+class Return: public Statement {
 	public:
 		std::unique_ptr<Value> val;
 		Return(std::unique_ptr<Value> p):
-			EndStatement(RETURNEND), val(std::move(p)) {}
+			Statement(RETURNEND), val(std::move(p)) {}
 		virtual std::string Str() const override {
 			if (val)
 				return "ret " + val->Str();
@@ -414,9 +406,12 @@ class Block {
 	public:
 		std::string symbol;
 		std::vector<std::unique_ptr<Statement> > stmts;
-		std::unique_ptr<EndStatement> end_stmt;
+		std::unique_ptr<Statement> end_stmt;
+		std::vector<Block*> prev_blocks;
+		std::vector<Block*> next_blocks;
+		int marked;
 		Block(std::string s, std::vector<std::unique_ptr<Statement> > v,
-			std::unique_ptr<EndStatement> p):
+			std::unique_ptr<Statement> p):
 			symbol(s), stmts(std::move(v)), end_stmt(std::move(p)) {}
 		std::string Str() const {
 			std::string s(symbol + ":\n");
