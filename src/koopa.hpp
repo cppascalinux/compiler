@@ -88,6 +88,14 @@ class UndefInit: public Initializer {
 		}
 };
 
+class ZeroInit: public Initializer {
+	public:
+		ZeroInit(): Initializer(ZEROINIT) {}
+		virtual std::string Str() const override {
+			return "zeroinit";
+		}
+};
+
 
 // Aggregate ::= "{" Initializer {"," Initializer} "}";
 class AggregateInit: public Initializer {

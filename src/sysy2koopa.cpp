@@ -540,6 +540,17 @@ vector<int> lin_init, vector<int> suf_mul) {
 	return make_unique<koopa::AggregateInit>(move(inits));
 }
 
+std::unique_ptr<koopa::Initializer> KoopaInitWith0(
+vector<int> lin_init, vector<int> suf_mul) {
+	int all_zero = 0;
+	for (int x: lin_init)
+		all_zero |= x;
+	if (!all_zero)
+		return make_unique<koopa::ZeroInit>();
+	else
+		return MakeKoopaInit(lin_init, suf_mul);
+}
+
 void GenArrayStore(vector<unique_ptr<koopa::Value> > lin_init, vector<int> suf_mul,
 string cur_symb, vector<unique_ptr<koopa::Statement> > &stmts) {
 	if (suf_mul.size() == 1) {
@@ -742,7 +753,7 @@ vector<unique_ptr<koopa::GlobalSymbolDef> > &global_symbs) {
 			GetConstInitVal(ast->init_val.get(), suf_mul, lin_init);
 		else
 			lin_init = vector<int>(suf_mul[0], 0);
-		auto init = MakeKoopaInit(lin_init, suf_mul);
+		auto init = KoopaInitWith0(lin_init, suf_mul);
 		auto mem_dec = make_unique<koopa::GlobalMemDec>(Dims2Type(num_dims), move(init));
 		string name = "@" + ast->ident + "_" + to_string(symtab_stack.GetTotal());
 		symtab_stack.AddSymbol(ast->ident, make_unique<symtab::VarSymb>(name, 0, num_dims.size()));
@@ -762,9 +773,13 @@ vector<unique_ptr<koopa::GlobalSymbolDef> > &global_symbs) {
 		}
 		else
 			val = 0;
-		auto val_init = make_unique<koopa::IntInit>(move(val));
+		unique_ptr<koopa::Initializer> init;
+		if (val)
+			init = make_unique<koopa::IntInit>(val);
+		else
+			init = make_unique<koopa::ZeroInit>();
 		auto mem_dec = make_unique<koopa::GlobalMemDec>(
-			make_unique<koopa::IntType>(), move(val_init));
+			make_unique<koopa::IntType>(), move(init));
 		string name = "@" + ast->ident + "_" + to_string(symtab_stack.GetTotal());
 		symtab_stack.AddSymbol(ast->ident, make_unique<symtab::VarSymb>(name, 0, 0));
 		global_symbs.push_back(make_unique<koopa::GlobalSymbolDef>(name, move(mem_dec)));
@@ -777,11 +792,14 @@ vector<unique_ptr<koopa::GlobalSymbolDef> > &global_symbs) {
 			*it *= *(it-1);
 		suf_mul.push_back(1);
 		vector<int> lin_init;
+		unique_ptr<koopa::Initializer> init;
 		if(ast->init_val)
+		{
 			GetConstInitVal(ast->init_val.get(), suf_mul, lin_init);
+			init = KoopaInitWith0(lin_init, suf_mul);;
+		}
 		else
-			lin_init = vector<int>(suf_mul[0], 0);
-		auto init = MakeKoopaInit(lin_init, suf_mul);
+			init = make_unique<koopa::ZeroInit>();
 		auto mem_dec = make_unique<koopa::GlobalMemDec>(Dims2Type(num_dims), move(init));
 		string name = "@" + ast->ident + "_" + to_string(symtab_stack.GetTotal());
 		symtab_stack.AddSymbol(ast->ident, make_unique<symtab::VarSymb>(name, 0, num_dims.size()));

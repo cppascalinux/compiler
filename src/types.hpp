@@ -23,14 +23,19 @@ class Type {
 		Type(TypeNum type): my_type(type) {}
 		virtual ~Type() = default;
 		virtual std::string Str() const = 0;
+		virtual int Size() const = 0;
 };
 
 class IntType: public Type {
 	public:
 		IntType(): Type(INTTYPE) {};
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return "i32";
 		}
+		virtual int Size() const override {
+			return 4;
+		}
+
 };
 
 // ArrayType ::= "[" Type "," INT "]";
@@ -40,8 +45,11 @@ class ArrayType: public Type {
 		int len;
 		ArrayType(std::unique_ptr<Type> type, int length):
 			Type(ARRAYTYPE), arr(std::move(type)), len(length) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return "[" + arr->Str() + ", " + std::to_string(len) + "]";
+		}
+		virtual int Size() const override {
+			return len * arr->Size();
 		}
 };
 
@@ -51,8 +59,11 @@ class PointerType: public Type {
 		std::shared_ptr<Type> ptr;
 		PointerType(std::unique_ptr<Type> type):
 			Type(POINTERTYPE), ptr(std::move(type)) {}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			return "*" + ptr->Str();
+		}
+		virtual int Size() const override {
+			return 4;
 		}
 };
 
@@ -63,7 +74,7 @@ class FunType: public Type {
 		std::shared_ptr<Type> ret;
 		FunType(std::vector<std::unique_ptr<Type> > p, std::unique_ptr<Type> q):
 			Type(FUNTYPE), params(std::move(p)), ret(std::move(q)){}
-		std::string Str() const override {
+		virtual std::string Str() const override {
 			std::string s("(");
 			if (!params.empty()) {
 				for (auto &ptr: params)
@@ -74,6 +85,9 @@ class FunType: public Type {
 			if (ret)
 				s += ": " + ret->Str();
 			return s;
+		}
+		virtual int Size() const override {
+			return ret->Size();
 		}
 };
 
