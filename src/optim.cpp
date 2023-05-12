@@ -227,18 +227,20 @@ void GetLiveVars(FunBody *ptr) {
 	while (!s.empty()) {
 		Statement *cur = *s.begin();
 		s.erase(s.begin());
-		if (cur->stmt_type == SYMBOLDEFSTMT) {
-			auto symb_def = static_cast<SymbolDef*>(cur);
-			cur->live_vars.erase(symb_def->symbol);
-		}
 		for (Statement *nxt: cur->prev_stmts) {
 			int upd = 0;
-			for (string var: cur->live_vars) {
-				if (!nxt->live_vars.count(var)) {
-					upd = 1;
-					nxt->live_vars.insert(var);
-				}
+			string del;
+			if (nxt->stmt_type == SYMBOLDEFSTMT) {
+				auto symb_def = static_cast<SymbolDef*>(cur);
+				del = symb_def->symbol;
 			}
+			for (string var: cur->live_vars)
+				if (var != del) {
+					if (!nxt->live_vars.count(var)) {
+						upd = 1;
+						nxt->live_vars.insert(var);
+					}
+				}
 			if (upd)
 				s.insert(nxt);
 		}
