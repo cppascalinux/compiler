@@ -225,15 +225,15 @@ int reg_used[], int reg_offset[]) {
 			code.push_back(make_unique<riscv::ImmInstr>("li", ai, "", int_val->integer));
 		} else {
 			auto symb_val = static_cast<koopa::SymbolValue*>(val);
-			string name = symb_val->symbol;
-			const VarInfo &info = var_info[name];
+			const VarInfo &info = var_info[symb_val->symbol];
 			if (info.reg >= 0) {
 				if (info.reg <= 16)
 					code.push_back(make_unique<riscv::RegInstr>("mv", ai, reg_name[info.reg], ""));
 				else
 					LoadOffset(ai, reg_offset[info.reg]);
 			} else {
-				LoadOffset(ai, info.offset);
+				string reg = LoadVar(info, ai);
+				assert(reg == ai);
 			}
 		}
 	}
