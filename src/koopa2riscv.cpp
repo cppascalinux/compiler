@@ -212,17 +212,30 @@ void ParseFunCall(koopa::FunCall *ptr,
 map<string, VarInfo> &var_info,
 int reg_used[], int reg_offset[]) {
 	int num_params = ptr->params.size();
-	for (int i = 0; i < 8 && i < num_params; i++) {
-		auto val = ptr->params[i].get();
-		string ai = "a" + to_string(i);
-		string rs = LoadKoopaValue(val, var_info, ai);
-		if (rs != ai)
-			code.push_back(make_unique<riscv::RegInstr>("mv", ai, rs, ""));
-	}
 	for (int i = 8; i < num_params; i++) {
 		auto val = ptr->params[i].get();
 		string rs = LoadKoopaValue(val, var_info, "t0");
 		StoreOffset(rs, (i-8)*4);
+	}
+	for (int i = 0; i < 8 && i < num_params; i++) {
+		auto val = ptr->params[i].get();
+		string ai = "a" + to_string(i);
+		if (val->val_type == koopa::INTVALUE) {
+			auto int_val = static_cast<koopa::IntValue*>(val);
+			code.push_back(make_unique<riscv::ImmInstr>("li", ai, "", int_val->integer));
+		} else {
+			auto symb_val = static_cast<koopa::SymbolValue*>(val);
+			string name = symb_val->symbol;
+			const VarInfo &info = var_info[name];
+			if (info.reg >= 0) {
+				if (info.reg <= 16)
+					code.push_back(make_unique<riscv::RegInstr>("mv", ai, reg_name[info.reg], ""));
+				else
+					LoadOffset(ai, reg_offset[info.reg]);
+			} else {
+				LoadOffset(ai, info.offset);
+			}
+		}
 	}
 	code.push_back(make_unique<riscv::LabelInstr>("call", "", ptr->symbol.substr(1)));
 }
