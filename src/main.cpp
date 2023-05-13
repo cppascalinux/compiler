@@ -60,7 +60,7 @@ int main(int argc, const char *argv[]) {
 		string code_koopa = koopa->Str();
 		code_koopa = lib_funcs + code_koopa;
 		outfile << code_koopa;
-	} else if (mode == "-riscv") {
+	} else if (mode == "-riscv" || mode == "-perf") {
 		string code_riscv = ParseProgram(koopa.get());
 		outfile << code_riscv;
 	}
