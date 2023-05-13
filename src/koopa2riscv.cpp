@@ -360,8 +360,8 @@ int reg_used[], int reg_offset[]) {
 		if (end_stmt->stmt_type == koopa::BRANCHEND) {
 			auto branch = static_cast<koopa::Branch*>(end_stmt);
 			string val_reg = LoadKoopaValue(branch->val.get(), var_info, "t0");
-			code.push_back(make_unique<riscv::LabelInstr>("beqz", val_reg, branch->symbol2.substr(1)));
-			code.push_back(make_unique<riscv::LabelInstr>("j", "", branch->symbol1.substr(1)));
+			code.push_back(make_unique<riscv::LabelInstr>("bnez", val_reg, branch->symbol1.substr(1)));
+			code.push_back(make_unique<riscv::LabelInstr>("j", "", branch->symbol2.substr(1)));
 		} else if (end_stmt->stmt_type == koopa::JUMPEND) {
 			auto jump = static_cast<koopa::Jump*>(end_stmt);
 			code.push_back(make_unique<riscv::LabelInstr>("j", "", jump->symbol.substr(1)));

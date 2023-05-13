@@ -307,6 +307,8 @@ void AllocRegs(FunBody *ptr, map<string, int> &var2reg) {
 		while(!q.empty()) {
 			string cur = q.front();
 			q.pop();
+			if (!defed_vars.count(cur))
+				continue;
 			defed_vars.erase(cur);
 			free_vars.push_back(cur);
 			for (string nxt: edges[cur])
