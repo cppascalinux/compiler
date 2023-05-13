@@ -346,8 +346,7 @@ void AllocRegs(FunBody *ptr, map<string, int> &var2reg) {
 				var2reg[cur] = i;
 				break;
 			}
-		var2reg[cur] = -1;
-		// assert(var2reg[cur] != -1);
+		assert(var2reg[cur] != -1);
 	}
 	int banned[8] = {};
 	int remap_regs[25] = {};
