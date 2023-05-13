@@ -49,8 +49,8 @@ int main(int argc, const char *argv[]) {
 
 	// 输出解析得到的 AST, 其实就是个字符串
 	// cout << *ast << endl;
-	ast->Dump();
-	cout << endl;
+	// ast->Dump();
+	// cout << endl;
 
 	auto koopa = GetCompUnit(ast.get());
 

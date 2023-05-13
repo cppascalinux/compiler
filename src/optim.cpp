@@ -3,12 +3,15 @@
 #include <set>
 #include <map>
 #include <vector>
+#include <queue>
+#include <cassert>
 #include "koopa.hpp"
+#include "optim.hpp"
+#include "koopa2riscv.hpp"
 
 using namespace std;
 using namespace koopa;
 
-const int max_regs = 25;
 
 void BuildBlockCFG(FunBody *ptr) {
 	map<string, Block*> block2ptr;
@@ -62,11 +65,13 @@ void CutDeadBlocks(FunBody *ptr) {
 			block->prev_blocks = move(new_prev_blocks);
 			new_blocks.push_back(move(block));
 		}
+	ptr->blocks = move(new_blocks);
 }
 
 void CountUsedVars(Block *block, set<string> &used_vars) {
 	auto end_stmt = static_cast<Statement*>(block->end_stmt.get());
 	set<string> &end_live_vars = end_stmt->live_vars;
+	end_live_vars.clear();
 	if (end_stmt->stmt_type == RETURNEND) {
 		auto ret_end = static_cast<const Return*>(end_stmt);
 		if (ret_end->val && ret_end->val->val_type == SYMBOLVALUE) {
@@ -84,6 +89,7 @@ void CountUsedVars(Block *block, set<string> &used_vars) {
 	}
 	for (const auto &stmt: block->stmts) {
 		set<string> &live_vars = stmt->live_vars;
+		live_vars.clear();
 		if (stmt->stmt_type == SYMBOLDEFSTMT) {
 			auto symb_def = static_cast<const SymbolDef*>(stmt.get());
 			if (symb_def->def_type == LOADDEF) {
@@ -162,29 +168,37 @@ void CountUsedVars(Block *block, set<string> &used_vars) {
 
 void CutDeadVars(FunBody *ptr) {
 	set<string> used_vars;
-	for (auto &block: ptr->blocks)
-		CountUsedVars(block.get(), used_vars);
-	for (auto &block: ptr->blocks) {
-		vector<unique_ptr<Statement> > new_stmts;
-		for (auto &stmt: block->stmts) {
-			if (stmt->stmt_type ==  SYMBOLDEFSTMT) {
-				auto symb_stmt = static_cast<SymbolDef*>(stmt.get());
-				string symb = symb_stmt->symbol;
-				if (!used_vars.count(symb)) {
-					if (symb_stmt->def_type != FUNCALLDEF)
-						continue;
-					else {
-						auto func_def = static_cast<FunCallDef*>(symb_stmt);
-						auto new_stmt = move(func_def->fun_call);
-						new_stmts.push_back(move(new_stmt));
-						continue;
+	while(1) {
+		used_vars.clear();
+		for (auto &block: ptr->blocks)
+			CountUsedVars(block.get(), used_vars);
+		int cut = 0;
+		for (auto &block: ptr->blocks) {
+			vector<unique_ptr<Statement> > new_stmts;
+			for (auto &stmt: block->stmts) {
+				if (stmt->stmt_type ==  SYMBOLDEFSTMT) {
+					auto symb_stmt = static_cast<SymbolDef*>(stmt.get());
+					string symb = symb_stmt->symbol;
+					if (!used_vars.count(symb)) {
+						cut = 1;
+						if (symb_stmt->def_type != FUNCALLDEF)
+							continue;
+						else {
+							auto func_def = static_cast<FunCallDef*>(symb_stmt);
+							auto new_stmt = move(func_def->fun_call);
+							new_stmts.push_back(move(new_stmt));
+							continue;
+						}
 					}
 				}
+				new_stmts.push_back(move(stmt));
 			}
-			new_stmts.push_back(move(stmt));
+			block->stmts = move(new_stmts);
 		}
-		block->stmts = move(new_stmts);
+		if (!cut)
+			break;
 	}
+	
 }
 
 void BuildStmtCFG(FunBody *ptr) {
@@ -215,23 +229,23 @@ void BuildStmtCFG(FunBody *ptr) {
 }
 
 void GetLiveVars(FunBody *ptr) {
-	set<Statement*> s;
+	queue<Statement*> q;
 	for (auto &block: ptr->blocks) {
 		if (!block->end_stmt->live_vars.empty())
-			s.insert(block->end_stmt.get());
+			q.push(block->end_stmt.get());
 		for (auto &stmt: block->stmts) {
 			if (!stmt->live_vars.empty())
-				s.insert(stmt.get());
+				q.push(stmt.get());
 		}
 	}
-	while (!s.empty()) {
-		Statement *cur = *s.begin();
-		s.erase(s.begin());
+	while (!q.empty()) {
+		Statement *cur = q.front();
+		q.pop();
 		for (Statement *nxt: cur->prev_stmts) {
 			int upd = 0;
 			string del;
 			if (nxt->stmt_type == SYMBOLDEFSTMT) {
-				auto symb_def = static_cast<SymbolDef*>(cur);
+				auto symb_def = static_cast<SymbolDef*>(nxt);
 				del = symb_def->symbol;
 			}
 			for (string var: cur->live_vars)
@@ -242,7 +256,112 @@ void GetLiveVars(FunBody *ptr) {
 					}
 				}
 			if (upd)
-				s.insert(nxt);
+				q.push(nxt);
 		}
 	}
+}
+
+void AllocRegs(FunBody *ptr, map<string, int> &var2reg) {
+	set<string> defed_vars;
+	map<string, set<string> > edges;
+	map<string, int> degree;
+	for (auto &block: ptr->blocks)
+		for (auto &stmt: block->stmts)
+			if (stmt->stmt_type == SYMBOLDEFSTMT) {
+				auto symb_def = static_cast<SymbolDef*>(stmt.get());
+				if (symb_def->def_type == MEMORYDEF) {
+					auto mem_def = static_cast<MemoryDef*>(symb_def);
+					if (mem_def->mem_dec->mem_type->my_type == ARRAYTYPE) {
+						var2reg[symb_def->symbol] = -1;
+						continue;
+					}
+				}
+				defed_vars.insert(symb_def->symbol);
+				var2reg[symb_def->symbol] = -1;
+			}
+	for (auto &block: ptr->blocks) {
+		auto end_stmt = block->end_stmt.get();
+		for (string var1: end_stmt->live_vars)
+			for (string var2: end_stmt->live_vars)
+				if (var1 != var2 && defed_vars.count(var1) && defed_vars.count(var2)) {
+					edges[var1].insert(var2);
+					edges[var2].insert(var1);
+				}
+		for (auto &stmt: block->stmts)
+			for (string var1: stmt->live_vars)
+				for (string var2: stmt->live_vars)
+					if (var1 != var2 && defed_vars.count(var1) && defed_vars.count(var2)) {
+						edges[var1].insert(var2);
+						edges[var2].insert(var1);
+					}
+	}
+	for (auto pr: edges)
+		degree[pr.first] = pr.second.size();
+	vector<string> free_vars;
+	while (!defed_vars.empty()) {
+		queue<string> q;
+		for (string var: defed_vars) {
+			if (degree[var] < max_regs)
+				q.push(var);
+		}
+		while(!q.empty()) {
+			string cur = q.front();
+			q.pop();
+			defed_vars.erase(cur);
+			free_vars.push_back(cur);
+			for (string nxt: edges[cur])
+				if (defed_vars.count(nxt))
+					if (--degree[nxt] < max_regs) {
+						q.push(nxt);
+					}
+		}
+		if (defed_vars.empty())
+			break;
+		int max_deg = 0;
+		string max_var;
+		for (auto var: defed_vars)
+			if (degree[var] > max_deg) {
+				max_deg = degree[var];
+				max_var = var;
+			}
+		defed_vars.erase(max_var);
+		var2reg[max_var] = -1;
+		for (string nxt: edges[max_var])
+			if (defed_vars.count(nxt))
+				degree[nxt]--;
+	}
+	while(!free_vars.empty()) {
+		string cur = free_vars.back();
+		free_vars.pop_back();
+		int colored[max_regs] = {};
+		for (string nxt: edges[cur])
+			if (var2reg[nxt] >= 0) {
+				colored[var2reg[nxt]] = 1;
+			}
+		for (int i = 0; i < max_regs; i++)
+			if (!colored[i])
+			{
+				var2reg[cur] = i;
+				break;
+			}
+		assert(var2reg[cur] != -1);
+	}
+	int banned[8] = {};
+	int remap_regs[25] = {};
+	for (int i = 0; i < 25;i ++)
+		remap_regs[i] = i;
+	for (auto &pr: var2reg) {
+		string name = pr.first;
+		int reg = pr.second;
+		if (name[0] == '%' && !(name[1] >= '0' && name[1] <= '9')) {
+			if (reg >= 17)
+				banned[reg-17] = 1;
+		}
+	}
+	for (int i = 0; i < 8; i++)
+		if (banned[i])
+			swap(remap_regs[i], remap_regs[i+17]);
+	for (auto &pr: var2reg)
+		if(pr.second >= 0)
+			pr.second = remap_regs[pr.second];
 }

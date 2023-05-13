@@ -41,10 +41,10 @@ class IntType: public Type {
 // ArrayType ::= "[" Type "," INT "]";
 class ArrayType: public Type {
 	public:
-		std::unique_ptr<Type> arr;
+		std::shared_ptr<Type> arr;
 		int len;
-		ArrayType(std::unique_ptr<Type> type, int length):
-			Type(ARRAYTYPE), arr(std::move(type)), len(length) {}
+		ArrayType(std::shared_ptr<Type> type, int length):
+			Type(ARRAYTYPE), arr(type), len(length) {}
 		virtual std::string Str() const override {
 			return "[" + arr->Str() + ", " + std::to_string(len) + "]";
 		}
@@ -57,8 +57,8 @@ class ArrayType: public Type {
 class PointerType: public Type {
 	public:
 		std::shared_ptr<Type> ptr;
-		PointerType(std::unique_ptr<Type> type):
-			Type(POINTERTYPE), ptr(std::move(type)) {}
+		PointerType(std::shared_ptr<Type> type):
+			Type(POINTERTYPE), ptr(type) {}
 		virtual std::string Str() const override {
 			return "*" + ptr->Str();
 		}
@@ -70,10 +70,10 @@ class PointerType: public Type {
 // FunType ::= "(" [Type {"," Type}] ")" [":" Type];
 class FunType: public Type {
 	public:
-		std::vector<std::unique_ptr<Type> > params;
+		std::vector<std::shared_ptr<Type> > params;
 		std::shared_ptr<Type> ret;
-		FunType(std::vector<std::unique_ptr<Type> > p, std::unique_ptr<Type> q):
-			Type(FUNTYPE), params(std::move(p)), ret(std::move(q)){}
+		FunType(std::vector<std::shared_ptr<Type> > p, std::shared_ptr<Type> q):
+			Type(FUNTYPE), params(p), ret(q){}
 		virtual std::string Str() const override {
 			std::string s("(");
 			if (!params.empty()) {

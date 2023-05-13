@@ -117,7 +117,7 @@ class LabelInstr: public Instr {
 			else if (!label.empty())
 				return "\t" + op + " " + label + "\n";
 			else
-				return "\t" + op;
+				return "\t" + op + "\n";
 		}
 };
 

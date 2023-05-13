@@ -33,9 +33,9 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 	stmts.push_back(move(store));
 }
 
-void AllocSymb(string symb, unique_ptr<koopa::Type> type,
+void AllocSymb(string symb, shared_ptr<koopa::Type> type,
 vector<unique_ptr<koopa::Statement> > &stmts) {
-	auto mem_alloc = make_unique<koopa::MemoryDec>(move(type));
+	auto mem_alloc = make_unique<koopa::MemoryDec>(type);
 	auto mem_def = make_unique<koopa::MemoryDef>(symb, move(mem_alloc));
 	stmts.push_back(move(mem_def));
 }
@@ -272,7 +272,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 		string else_symb = "%shortcircuit_and_false_" + to_string(block_counter++);
 		string end_symb = "%shortcircuit_and_end_" + to_string(block_counter++);
 		string ret_var = ("%" + to_string(temp_var_counter++));
-		AllocSymb(ret_var, make_unique<koopa::IntType>(), stmts);
+		AllocSymb(ret_var, make_shared<koopa::IntType>(), stmts);
 
 		auto l_exp = GetLAndExp(ast->land_exp.get(), blocks, stmts);
 		auto l_0 = make_unique<koopa::IntValue>(0);
@@ -311,7 +311,7 @@ vector<unique_ptr<koopa::Statement> > &stmts) {
 		string else_symb = "%shortcircuit_or_false_" + to_string(block_counter++);
 		string end_symb = "%shortcircuit_or_end_" + to_string(block_counter++);
 		string ret_var = ("%" + to_string(temp_var_counter++));
-		AllocSymb(ret_var, make_unique<koopa::IntType>(), stmts);
+		AllocSymb(ret_var, make_shared<koopa::IntType>(), stmts);
 
 		auto l_exp = GetLOrExp(ast->lor_exp.get(), blocks, stmts);
 		auto l_0 = make_unique<koopa::IntValue>(0);
@@ -574,10 +574,10 @@ string cur_symb, vector<unique_ptr<koopa::Statement> > &stmts) {
 	}
 }
 
-unique_ptr<koopa::Type> Dims2Type(vector<int> num_dims) {
-	unique_ptr<koopa::Type> type = make_unique<koopa::IntType>();
+shared_ptr<koopa::Type> Dims2Type(vector<int> num_dims) {
+	shared_ptr<koopa::Type> type = make_shared<koopa::IntType>();
 	for (auto it = num_dims.rbegin(); it != num_dims.rend(); it++)
-		type = make_unique<koopa::ArrayType>(move(type), *it);
+		type = make_unique<koopa::ArrayType>(type, *it);
 	return type;
 }
 
@@ -617,7 +617,7 @@ vector<unique_ptr<koopa::Block> > &blocks,
 vector<unique_ptr<koopa::Statement> > &stmts) {
 	string name = "@" + ast->ident + "_" + to_string(symtab_stack.GetTotal());
 	if (ast->dims.empty()) {
-		AllocSymb(name, make_unique<koopa::IntType>(), stmts);
+		AllocSymb(name, make_shared<koopa::IntType>(), stmts);
 		if(ast->init_val) {
 			const auto &init = ast->init_val;
 			assert(init->init_type == sysy::EXPINITVAL);
@@ -695,16 +695,15 @@ unique_ptr<koopa::FunDef> GetFuncDef(const sysy::FuncDef *ast) {
 	vector<unique_ptr<koopa::Block> > blocks;
 	vector<unique_ptr<koopa::Statement> > stmts;
 	string symbol = "@" + ast->ident;
-	unique_ptr<koopa::Type> ret_type = ast->func_type == "int" ?
-		make_unique<koopa::IntType>() : nullptr;
-	vector<pair<string, unique_ptr<koopa::Type> > > fun_params;
+	shared_ptr<koopa::Type> ret_type = ast->func_type == "int" ?
+		make_shared<koopa::IntType>() : nullptr;
+	vector<pair<string, shared_ptr<koopa::Type> > > fun_params;
 	for (const auto &ptr: ast->params) {
 		string ident_name = ptr->ident + "_" + to_string(symtab_stack.GetTotal());
 		if(ptr->dims.empty()) {
-			auto type = make_unique<koopa::IntType>();
-			fun_params.emplace_back("@" + ident_name, move(type));
-			type = make_unique<koopa::IntType>();
-			AllocSymb("%" + ident_name, move(type), stmts);
+			auto type = make_shared<koopa::IntType>();
+			fun_params.emplace_back("@" + ident_name, type);
+			AllocSymb("%" + ident_name, type, stmts);
 			StoreSymb("%" + ident_name,
 				make_unique<koopa::SymbolValue>("@" + ident_name), stmts);
 			auto new_symtab = make_unique<symtab::VarSymb>("%" + ident_name, 1, 0);
@@ -714,10 +713,9 @@ unique_ptr<koopa::FunDef> GetFuncDef(const sysy::FuncDef *ast) {
 			for (const auto &dim: ptr->dims)
 				if (dim)
 					num_dims.push_back(dim->exp->Eval());
-			auto type = make_unique<koopa::PointerType>(Dims2Type(num_dims));
-			fun_params.emplace_back("@" + ident_name, move(type));
-			type = make_unique<koopa::PointerType>(Dims2Type(num_dims));
-			AllocSymb("%" + ident_name, move(type), stmts);
+			auto type = make_shared<koopa::PointerType>(Dims2Type(num_dims));
+			fun_params.emplace_back("@" + ident_name, type);
+			AllocSymb("%" + ident_name, type, stmts);
 			StoreSymb("%" + ident_name,
 				make_unique<koopa::SymbolValue>("@" + ident_name), stmts);
 			auto new_symtab = make_unique<symtab::VarSymb>("%" + ident_name, 1, num_dims.size() + 1);
@@ -779,7 +777,7 @@ vector<unique_ptr<koopa::GlobalSymbolDef> > &global_symbs) {
 		else
 			init = make_unique<koopa::ZeroInit>();
 		auto mem_dec = make_unique<koopa::GlobalMemDec>(
-			make_unique<koopa::IntType>(), move(init));
+			make_shared<koopa::IntType>(), move(init));
 		string name = "@" + ast->ident + "_" + to_string(symtab_stack.GetTotal());
 		symtab_stack.AddSymbol(ast->ident, make_unique<symtab::VarSymb>(name, 0, 0));
 		global_symbs.push_back(make_unique<koopa::GlobalSymbolDef>(name, move(mem_dec)));
