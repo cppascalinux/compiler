@@ -5,6 +5,8 @@
 #include <vector>
 #include <queue>
 #include <cassert>
+#include <random>
+#include <algorithm>
 #include "koopa.hpp"
 #include "optim.hpp"
 #include "koopa2riscv.hpp"
@@ -68,7 +70,12 @@ void CutDeadBlocks(FunBody *ptr) {
 	ptr->blocks = move(new_blocks);
 }
 
-void CountUsedVars(Block *block, set<string> &used_vars) {
+void CountUsedVars(Block *block, map<string, int> &used_vars) {
+	string block_name = block->symbol;
+	int is_while = 1;
+	if (block_name.substr(1,12) == "while_begin_" ||
+		block_name.substr(1,11) == "while_body_")
+			is_while = 10;
 	auto end_stmt = static_cast<Statement*>(block->end_stmt.get());
 	set<string> &end_live_vars = end_stmt->live_vars;
 	end_live_vars.clear();
@@ -76,14 +83,14 @@ void CountUsedVars(Block *block, set<string> &used_vars) {
 		auto ret_end = static_cast<const Return*>(end_stmt);
 		if (ret_end->val && ret_end->val->val_type == SYMBOLVALUE) {
 			auto symb = static_cast<const SymbolValue*>(ret_end->val.get());
-			used_vars.insert(symb->symbol);
+			used_vars[symb->symbol] += is_while;
 			end_live_vars.insert(symb->symbol);
 		}
 	} else if (end_stmt->stmt_type == BRANCHEND) {
 		auto br_end = static_cast<const Branch*>(end_stmt);
 		if (br_end->val->val_type == SYMBOLVALUE) {
 			auto symb = static_cast<const SymbolValue*>(br_end->val.get());
-			used_vars.insert(symb->symbol);
+			used_vars[symb->symbol] += is_while;
 			end_live_vars.insert(symb->symbol);
 		}
 	}
@@ -94,26 +101,26 @@ void CountUsedVars(Block *block, set<string> &used_vars) {
 			auto symb_def = static_cast<const SymbolDef*>(stmt.get());
 			if (symb_def->def_type == LOADDEF) {
 				auto load_def = static_cast<const LoadDef*>(symb_def);
-				used_vars.insert(load_def->load->symbol);
+				used_vars[load_def->load->symbol] += is_while;
 				live_vars.insert(load_def->load->symbol);
 			} else if (symb_def->def_type == GETPTRDEF) {
 				auto ptr_def = static_cast<const GetPtrDef*>(symb_def);
-				used_vars.insert(ptr_def->get_ptr->symbol);
+				used_vars[ptr_def->get_ptr->symbol] += is_while;
 				live_vars.insert(ptr_def->get_ptr->symbol);
 				auto val = ptr_def->get_ptr->val.get();
 				if (val->val_type == SYMBOLVALUE) {
 					auto symb_val = static_cast<const SymbolValue*>(val);
-					used_vars.insert(symb_val->symbol);
+					used_vars[symb_val->symbol] += is_while;
 					live_vars.insert(symb_val->symbol);
 				}
 			} else if (symb_def->def_type == GETELEMPTRDEF) {
 				auto ptr_def = static_cast<const GetElemPtrDef*>(symb_def);
-				used_vars.insert(ptr_def->get_elem_ptr->symbol);
+				used_vars[ptr_def->get_elem_ptr->symbol] += is_while;
 				live_vars.insert(ptr_def->get_elem_ptr->symbol);
 				auto val = ptr_def->get_elem_ptr->val.get();
 				if (val->val_type == SYMBOLVALUE) {
 					auto symb_val = static_cast<const SymbolValue*>(val);
-					used_vars.insert(symb_val->symbol);
+					used_vars[symb_val->symbol] += is_while;
 					live_vars.insert(symb_val->symbol);
 				}
 			} else if (symb_def->def_type == BINEXPRDEF) {
@@ -122,12 +129,12 @@ void CountUsedVars(Block *block, set<string> &used_vars) {
 				auto val2 = bin_def->bin_expr->val2.get();
 				if (val1->val_type == SYMBOLVALUE) {
 					auto symb_val = static_cast<const SymbolValue*>(val1);
-					used_vars.insert(symb_val->symbol);
+					used_vars[symb_val->symbol] += is_while;
 					live_vars.insert(symb_val->symbol);
 				}
 				if (val2->val_type == SYMBOLVALUE) {
 					auto symb_val = static_cast<const SymbolValue*>(val2);
-					used_vars.insert(symb_val->symbol);
+					used_vars[symb_val->symbol] += is_while;
 					live_vars.insert(symb_val->symbol);
 				}
 			} else if (symb_def->def_type == FUNCALLDEF) {
@@ -135,20 +142,20 @@ void CountUsedVars(Block *block, set<string> &used_vars) {
 				for (const auto &val: func_def->fun_call->params) {
 					if (val->val_type == SYMBOLVALUE) {
 						auto symb_val = static_cast<const SymbolValue*>(val.get());
-						used_vars.insert(symb_val->symbol);
+						used_vars[symb_val->symbol] += is_while;
 						live_vars.insert(symb_val->symbol);
 					}
 				}
 			}
 		} else if (stmt->stmt_type == STORESTMT) {
 			auto store = static_cast<const Store*>(stmt.get());
-			used_vars.insert(store->symbol);
+			used_vars[store->symbol] += is_while;
 			live_vars.insert(store->symbol);
 			if (store->store_type == VALUESTORE) {
 				auto val_store = static_cast<const ValueStore*>(store);
 				if (val_store->val->val_type == SYMBOLVALUE) {
 					auto symb_val = static_cast<const SymbolValue*>(val_store->val.get());
-					used_vars.insert(symb_val->symbol);
+					used_vars[symb_val->symbol] += is_while;
 					live_vars.insert(symb_val->symbol);
 				}
 			}
@@ -157,7 +164,7 @@ void CountUsedVars(Block *block, set<string> &used_vars) {
 			for (const auto &val: func->params) {
 				if (val->val_type == SYMBOLVALUE) {
 					auto symb_val = static_cast<const SymbolValue*>(val.get());
-					used_vars.insert(symb_val->symbol);
+					used_vars[symb_val->symbol] += is_while;
 					live_vars.insert(symb_val->symbol);
 				}
 			}
@@ -166,8 +173,7 @@ void CountUsedVars(Block *block, set<string> &used_vars) {
 
 }
 
-void CutDeadVars(FunBody *ptr) {
-	set<string> used_vars;
+void CutDeadVars(FunBody *ptr, map<string, int> &used_vars) {
 	while(1) {
 		used_vars.clear();
 		for (auto &block: ptr->blocks)
@@ -261,11 +267,12 @@ void GetLiveVars(FunBody *ptr) {
 	}
 }
 
-void AllocRegs(FunBody *ptr, map<string, int> &var2reg) {
+void AllocRegs(FunBody *ptr, map<string, int> &var2reg, map<string, int> &used_vars) {
 	set<string> defed_vars;
 	map<string, set<string> > edges;
 	map<string, int> degree;
-	for (auto &block: ptr->blocks)
+	map<string, int> spill_cost;
+	for (auto &block: ptr->blocks) {
 		for (auto &stmt: block->stmts)
 			if (stmt->stmt_type == SYMBOLDEFSTMT) {
 				auto symb_def = static_cast<SymbolDef*>(stmt.get());
@@ -279,6 +286,7 @@ void AllocRegs(FunBody *ptr, map<string, int> &var2reg) {
 				defed_vars.insert(symb_def->symbol);
 				var2reg[symb_def->symbol] = -1;
 			}
+	}
 	for (auto &block: ptr->blocks) {
 		auto end_stmt = block->end_stmt.get();
 		for (string var1: end_stmt->live_vars)
@@ -298,6 +306,7 @@ void AllocRegs(FunBody *ptr, map<string, int> &var2reg) {
 	for (auto pr: edges)
 		degree[pr.first] = pr.second.size();
 	vector<string> free_vars;
+	vector<string> spilled_vars;
 	while (!defed_vars.empty()) {
 		queue<string> q;
 		for (string var: defed_vars) {
@@ -319,14 +328,15 @@ void AllocRegs(FunBody *ptr, map<string, int> &var2reg) {
 		}
 		if (defed_vars.empty())
 			break;
-		int max_deg = 0;
+		double min_cost = 1e18;
 		string max_var;
 		for (auto var: defed_vars)
-			if (degree[var] > max_deg) {
-				max_deg = degree[var];
+			if (used_vars[var] / degree[var] < min_cost) {
+				min_cost = used_vars[var] / degree[var];
 				max_var = var;
 			}
 		defed_vars.erase(max_var);
+		spilled_vars.push_back(max_var);
 		var2reg[max_var] = -1;
 		for (string nxt: edges[max_var])
 			if (defed_vars.count(nxt))
@@ -347,6 +357,21 @@ void AllocRegs(FunBody *ptr, map<string, int> &var2reg) {
 				break;
 			}
 		assert(var2reg[cur] != -1);
+	}
+	mt19937 rnd(514);
+	shuffle(spilled_vars.begin(), spilled_vars.end(), rnd);
+	for (string cur: spilled_vars) {
+		int colored[max_regs] = {};
+		for (string nxt: edges[cur])
+			if (var2reg[nxt] >= 0) {
+				colored[var2reg[nxt]] = 1;
+			}
+		for (int i = 0; i < max_regs; i++)
+			if (!colored[i])
+			{
+				var2reg[cur] = i;
+				break;
+			}
 	}
 	int banned[8] = {};
 	int remap_regs[25] = {};

@@ -398,11 +398,12 @@ void ParseFunDef(koopa::FunDef *ptr) {
 	auto body = ptr->body.get();
 	BuildBlockCFG(body);
 	CutDeadBlocks(body);
-	CutDeadVars(body);
+	map<string, int> used_vars;
+	CutDeadVars(body, used_vars);
 	BuildStmtCFG(body);
 	GetLiveVars(body);
 	map<string, int> var_reg;
-	AllocRegs(body, var_reg);
+	AllocRegs(body, var_reg, used_vars);
 	map<string, VarInfo> var_info(global_var_info);
 	GetVarType(ptr, var_info);
 	int reg_used[25] = {};
